@@ -11,7 +11,11 @@ function formatTime(ms: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-export default function Timer() {
+interface Props {
+  accent?: string;
+}
+
+export default function Timer({ accent }: Props) {
   const { mode, pomosDoneInCycle, remaining, running, start, pause, reset, selectMode } =
     useTimer();
 
@@ -21,6 +25,7 @@ export default function Timer() {
         mode={mode}
         pomosDoneInCycle={pomosDoneInCycle}
         onSelect={selectMode}
+        accent={accent}
       />
       <div className="text-white text-[8rem] font-semibold tabular-nums tracking-tight leading-none">
         {formatTime(remaining)}
