@@ -1,14 +1,24 @@
 "use client";
 
+import React from "react";
 import { Mode, MODE_LABELS, MODES } from "@/lib/timer/sequence";
 
 interface Props {
   mode: Mode;
   pomosDoneInCycle: number;
   onSelect: (mode: Mode) => void;
+  accent?: string;
 }
 
-export default function ModePills({ mode, pomosDoneInCycle, onSelect }: Props) {
+export default function ModePills({ mode, pomosDoneInCycle, onSelect, accent }: Props) {
+  const activePillStyle = (m: Mode): React.CSSProperties | undefined =>
+    mode === m
+      ? {
+          backgroundColor: accent ? `${accent}33` : "rgba(255,255,255,0.12)",
+          outline: `1.5px solid ${accent ?? "rgba(255,255,255,0.3)"}`,
+        }
+      : undefined;
+
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="flex gap-1">
@@ -16,11 +26,12 @@ export default function ModePills({ mode, pomosDoneInCycle, onSelect }: Props) {
           <button
             key={m}
             onClick={() => onSelect(m)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer ${
               mode === m
-                ? "bg-white/20 text-white"
+                ? "text-white"
                 : "text-white/50 hover:text-white/80"
             }`}
+            style={activePillStyle(m)}
           >
             {MODE_LABELS[m]}
           </button>
@@ -30,9 +41,13 @@ export default function ModePills({ mode, pomosDoneInCycle, onSelect }: Props) {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className={`w-2 h-2 rounded-full transition-colors ${
-              i < pomosDoneInCycle ? "bg-white/80" : "bg-white/20"
-            }`}
+            className="w-2 h-2 rounded-full transition-colors"
+            style={{
+              backgroundColor:
+                i < pomosDoneInCycle
+                  ? accent ?? "rgba(255,255,255,0.8)"
+                  : "rgba(255,255,255,0.2)",
+            }}
           />
         ))}
       </div>

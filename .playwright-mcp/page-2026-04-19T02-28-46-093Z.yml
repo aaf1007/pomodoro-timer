@@ -1,0 +1,22 @@
+- generic [ref=e1]:
+  - main [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - button "Pomodoro" [ref=e9] [cursor=pointer]
+          - button "Short Break" [ref=e10] [cursor=pointer]
+          - button "Long Break" [ref=e11] [cursor=pointer]
+        - generic "0 of 4 pomodoros done" [ref=e12]
+      - generic [ref=e17]: 25:00
+      - generic [ref=e18]:
+        - button "start" [ref=e19] [cursor=pointer]
+        - button "Reset timer" [ref=e20] [cursor=pointer]:
+          - img [ref=e21]
+  - generic "Theme selector" [ref=e25]:
+    - button "Seoul Sunrise" [ref=e26] [cursor=pointer]
+    - button "Tokyo Sakura" [active] [ref=e28] [cursor=pointer]
+    - button "Rainy Paris" [ref=e29] [cursor=pointer]
+    - button "Cozy Fireplace" [ref=e30] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e36] [cursor=pointer]:
+    - img [ref=e37]
+  - alert [ref=e40]

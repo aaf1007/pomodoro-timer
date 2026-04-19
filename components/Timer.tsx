@@ -10,7 +10,11 @@ import type { Mode } from "@/lib/timer/sequence";
 import ModePills from "./ModePills";
 import Controls from "./Controls";
 
-export default function Timer() {
+interface Props {
+  accent?: string;
+}
+
+export default function Timer({ accent }: Props) {
   const handleSessionEnd = useCallback((mode: Mode) => {
     playAlert("bell", 0.6);
     notifySessionEnd(mode);
@@ -27,6 +31,7 @@ export default function Timer() {
         mode={mode}
         pomosDoneInCycle={pomosDoneInCycle}
         onSelect={selectMode}
+        accent={accent}
       />
       <div className="text-white text-[8rem] font-semibold tabular-nums tracking-tight leading-none">
         {formatCountdown(remaining)}
