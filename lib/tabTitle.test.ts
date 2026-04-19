@@ -1,4 +1,3 @@
-import { describe, it, expect, afterEach } from "vitest";
 import { formatCountdown, applyTimerTitle, restoreTimerTitle } from "./tabTitle";
 
 describe("formatCountdown", () => {

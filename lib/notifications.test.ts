@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   isNotificationSupported,
   requestPermissionIfNeeded,
@@ -9,28 +8,31 @@ function makeNotificationAPI(
   permission: NotificationPermission = "default",
   requestResult: NotificationPermission = "granted"
 ) {
-  const MockNotification = vi.fn() as unknown as typeof Notification & {
+  const MockNotification = jest.fn() as unknown as typeof Notification & {
     permission: NotificationPermission;
     requestPermission: () => Promise<NotificationPermission>;
   };
   MockNotification.permission = permission;
-  MockNotification.requestPermission = vi.fn().mockResolvedValue(requestResult);
+  MockNotification.requestPermission = jest.fn().mockResolvedValue(requestResult);
   return MockNotification;
 }
 
 describe("notifications", () => {
+  const originalNotification = global.Notification;
+
   afterEach(() => {
-    vi.unstubAllGlobals();
+    global.Notification = originalNotification;
   });
 
   describe("isNotificationSupported", () => {
     it("should_return_true_when_Notification_exists", () => {
-      vi.stubGlobal("Notification", makeNotificationAPI());
+      global.Notification = makeNotificationAPI() as unknown as typeof Notification;
       expect(isNotificationSupported()).toBe(true);
     });
 
     it("should_return_false_when_Notification_missing", () => {
-      vi.stubGlobal("Notification", undefined);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (global as any).Notification = undefined;
       expect(isNotificationSupported()).toBe(false);
     });
   });
@@ -38,16 +40,16 @@ describe("notifications", () => {
   describe("requestPermissionIfNeeded", () => {
     it("should_call_requestPermission_when_status_is_default", async () => {
       const mock = makeNotificationAPI("default", "granted");
-      vi.stubGlobal("Notification", mock);
+      global.Notification = mock as unknown as typeof Notification;
 
       await requestPermissionIfNeeded();
 
-      expect(mock.requestPermission).toHaveBeenCalledOnce();
+      expect(mock.requestPermission).toHaveBeenCalledTimes(1);
     });
 
     it("should_not_call_requestPermission_when_already_granted", async () => {
       const mock = makeNotificationAPI("granted");
-      vi.stubGlobal("Notification", mock);
+      global.Notification = mock as unknown as typeof Notification;
 
       await requestPermissionIfNeeded();
 
@@ -56,7 +58,7 @@ describe("notifications", () => {
 
     it("should_not_call_requestPermission_when_already_denied", async () => {
       const mock = makeNotificationAPI("denied");
-      vi.stubGlobal("Notification", mock);
+      global.Notification = mock as unknown as typeof Notification;
 
       await requestPermissionIfNeeded();
 
@@ -65,7 +67,7 @@ describe("notifications", () => {
 
     it("should_return_existing_permission_without_requesting", async () => {
       const mock = makeNotificationAPI("granted");
-      vi.stubGlobal("Notification", mock);
+      global.Notification = mock as unknown as typeof Notification;
 
       const result = await requestPermissionIfNeeded();
 
@@ -73,7 +75,8 @@ describe("notifications", () => {
     });
 
     it("should_return_undefined_when_Notification_not_supported", async () => {
-      vi.stubGlobal("Notification", undefined);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (global as any).Notification = undefined;
 
       const result = await requestPermissionIfNeeded();
 
@@ -84,7 +87,7 @@ describe("notifications", () => {
   describe("notifySessionEnd", () => {
     it("should_create_notification_when_permission_granted", () => {
       const mock = makeNotificationAPI("granted");
-      vi.stubGlobal("Notification", mock);
+      global.Notification = mock as unknown as typeof Notification;
 
       notifySessionEnd("pom");
 
@@ -96,7 +99,7 @@ describe("notifications", () => {
 
     it("should_not_create_notification_when_permission_denied", () => {
       const mock = makeNotificationAPI("denied");
-      vi.stubGlobal("Notification", mock);
+      global.Notification = mock as unknown as typeof Notification;
 
       notifySessionEnd("pom");
 
@@ -105,7 +108,7 @@ describe("notifications", () => {
 
     it("should_show_short_break_message_for_short_mode", () => {
       const mock = makeNotificationAPI("granted");
-      vi.stubGlobal("Notification", mock);
+      global.Notification = mock as unknown as typeof Notification;
 
       notifySessionEnd("short");
 
@@ -117,7 +120,7 @@ describe("notifications", () => {
 
     it("should_show_long_break_message_for_long_mode", () => {
       const mock = makeNotificationAPI("granted");
-      vi.stubGlobal("Notification", mock);
+      global.Notification = mock as unknown as typeof Notification;
 
       notifySessionEnd("long");
 
@@ -128,7 +131,8 @@ describe("notifications", () => {
     });
 
     it("should_not_throw_when_Notification_not_supported", () => {
-      vi.stubGlobal("Notification", undefined);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (global as any).Notification = undefined;
 
       expect(() => notifySessionEnd("pom")).not.toThrow();
     });

@@ -1,8 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { playAlert, ALERT_SOUNDS } from "./audio";
 import type { AlertSound } from "./audio";
 
-const mockPlay = vi.fn().mockResolvedValue(undefined);
+const mockPlay = jest.fn().mockResolvedValue(undefined);
 
 class MockAudio {
   src: string;
@@ -13,7 +12,9 @@ class MockAudio {
   play = mockPlay;
 }
 
-vi.stubGlobal("Audio", MockAudio);
+beforeAll(() => {
+  global.Audio = MockAudio as unknown as typeof Audio;
+});
 
 describe("audio", () => {
   beforeEach(() => {
@@ -26,25 +27,23 @@ describe("audio", () => {
 
   it("should_play_correct_src_when_bell_selected", () => {
     playAlert("bell", 0.8);
-    expect(mockPlay).toHaveBeenCalledOnce();
+    expect(mockPlay).toHaveBeenCalledTimes(1);
   });
 
   it("should_set_volume_before_playing", () => {
     let capturedVolume: number | undefined;
-    const OrigMockAudio = MockAudio;
-    // Override play to capture volume at call time
-    class CapturingAudio extends OrigMockAudio {
-      play = vi.fn().mockImplementation(() => {
+    class CapturingAudio extends MockAudio {
+      play = jest.fn().mockImplementation(() => {
         capturedVolume = this.volume;
         return Promise.resolve();
       });
     }
-    vi.stubGlobal("Audio", CapturingAudio);
+    global.Audio = CapturingAudio as unknown as typeof Audio;
 
     playAlert("chime", 0.5);
     expect(capturedVolume).toBe(0.5);
 
-    vi.stubGlobal("Audio", MockAudio);
+    global.Audio = MockAudio as unknown as typeof Audio;
   });
 
   it("should_use_sounds_path_for_each_alert_sound", () => {
@@ -58,13 +57,13 @@ describe("audio", () => {
           this.src = src;
           capturedSrc = src;
         }
-        play = vi.fn().mockResolvedValue(undefined);
+        play = jest.fn().mockResolvedValue(undefined);
       }
-      vi.stubGlobal("Audio", SrcCapture);
+      global.Audio = SrcCapture as unknown as typeof Audio;
       playAlert(sound, 1);
       expect(capturedSrc).toBe(`/sounds/${sound}.mp3`);
     }
-    vi.stubGlobal("Audio", MockAudio);
+    global.Audio = MockAudio as unknown as typeof Audio;
   });
 
   it("should_clamp_volume_to_0_when_negative", () => {
@@ -73,15 +72,15 @@ describe("audio", () => {
       src: string;
       volume = 1;
       constructor(src: string) { this.src = src; }
-      play = vi.fn().mockImplementation(() => {
+      play = jest.fn().mockImplementation(() => {
         capturedVolume = this.volume;
         return Promise.resolve();
       });
     }
-    vi.stubGlobal("Audio", VolumeCapture);
+    global.Audio = VolumeCapture as unknown as typeof Audio;
     playAlert("bell", -0.5);
     expect(capturedVolume).toBe(0);
-    vi.stubGlobal("Audio", MockAudio);
+    global.Audio = MockAudio as unknown as typeof Audio;
   });
 
   it("should_clamp_volume_to_1_when_above_max", () => {
@@ -90,14 +89,14 @@ describe("audio", () => {
       src: string;
       volume = 1;
       constructor(src: string) { this.src = src; }
-      play = vi.fn().mockImplementation(() => {
+      play = jest.fn().mockImplementation(() => {
         capturedVolume = this.volume;
         return Promise.resolve();
       });
     }
-    vi.stubGlobal("Audio", VolumeCapture);
+    global.Audio = VolumeCapture as unknown as typeof Audio;
     playAlert("bell", 1.5);
     expect(capturedVolume).toBe(1);
-    vi.stubGlobal("Audio", MockAudio);
+    global.Audio = MockAudio as unknown as typeof Audio;
   });
 });
