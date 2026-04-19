@@ -1,0 +1,91 @@
+- generic [ref=e1]:
+  - img [ref=e3]
+  - generic [ref=e5]:
+    - img [ref=e7]
+    - generic [ref=e10]:
+      - generic [ref=e11]: Our fresh new Pomodoro Timer
+      - generic [ref=e12]: Free. Lots of aesthetic themes and customizations, to-dos, and lots more. Built by the same team.
+      - link "Go to new timer" [ref=e13] [cursor=pointer]:
+        - /url: https://flocus.com/features/pomodoro-timer?utm_source=studywithme&utm_medium=web-tool&utm_campaign=flocus-signups&utm_content=corner-banner
+      - img [ref=e14]
+      - img [ref=e16] [cursor=pointer]
+  - generic [ref=e18]:
+    - generic [ref=e19]:
+      - generic [ref=e21] [cursor=pointer]: Pomodoro
+      - generic [ref=e24] [cursor=pointer]: Short Break
+      - generic [ref=e26] [cursor=pointer]: Long Break
+    - generic [ref=e27]: 25:00
+    - generic [ref=e28]:
+      - button "start" [ref=e29] [cursor=pointer]
+      - button [ref=e30] [cursor=pointer]:
+        - img [ref=e31]
+      - button [active] [ref=e33] [cursor=pointer]:
+        - img [ref=e34]
+  - generic [ref=e36]:
+    - generic [ref=e37]:
+      - link [ref=e38] [cursor=pointer]:
+        - /url: https://discord.gg/dts9VdWhNG
+        - img [ref=e39]
+        - img [ref=e40]
+      - iframe [ref=e41]:
+        - generic [active] [ref=f2e1]:
+          - generic [ref=f2e4]:
+            - generic [ref=f2e5]:
+              - button "Play on Spotify" [ref=f2e9] [cursor=pointer]:
+                - img [ref=f2e10]
+              - generic [ref=f2e18]:
+                - generic [ref=f2e19]: lofi 💿 for study, chill, and more
+                - generic [ref=f2e20]: ·
+                - generic [ref=f2e21]: Flocus
+              - list "Tags" [ref=f2e23]:
+                - generic "Preview" [ref=f2e24]
+              - generic [ref=f2e26]:
+                - generic [ref=f2e27]:
+                  - button "Previous" [disabled] [ref=f2e28]:
+                    - img [ref=f2e30]
+                  - button "Next" [disabled] [ref=f2e32]:
+                    - img [ref=f2e34]
+                - button "Save on Spotify" [ref=f2e36] [cursor=pointer]:
+                  - img [ref=f2e38]
+                - button "More" [ref=f2e41] [cursor=pointer]:
+                  - img [ref=f2e42]
+                - button "Play" [ref=f2e45] [cursor=pointer]:
+                  - img [ref=f2e46]
+            - listitem [ref=f2e51]:
+              - generic [ref=f2e52]:
+                - heading "Your Eyes" [level=3] [ref=f2e53]
+                - generic [ref=f2e54]: ·
+                - generic [ref=f2e55]: Joey Pecoraro
+          - alert [ref=f2e56]
+    - generic [ref=e42]:
+      - link "✨ Go to Flocus →" [ref=e43] [cursor=pointer]:
+        - /url: http://app.flocus.com/focus?utm_source=studywithme&utm_medium=web-tool&utm_campaign=flocus-signups&utm_content=dashboard-button
+      - button [ref=e44] [cursor=pointer]:
+        - img [ref=e45]
+  - dialog [ref=e56]:
+    - generic [ref=e57]:
+      - button "Close" [ref=e59] [cursor=pointer]
+      - generic [ref=e61]:
+        - tablist [ref=e62]:
+          - tab "General" [ref=e63] [cursor=pointer]
+          - tab "Timers" [ref=e64] [cursor=pointer]
+          - tab "Sounds" [ref=e65] [cursor=pointer]
+          - tab "Account" [ref=e66] [cursor=pointer]
+          - tab "Get Update New" [selected] [ref=e67] [cursor=pointer]:
+            - text: Get Update
+            - generic [ref=e68]: New
+        - tabpanel "Get Update New" [ref=e70]:
+          - generic [ref=e72]:
+            - paragraph [ref=e74]: Get the Update
+            - generic [ref=e75]:
+              - paragraph [ref=e76]: "Meet Flocus: Our latest and greatest aesthetic tool for you to romanticize focusing and studying."
+              - paragraph [ref=e77]: It's everything you already love about StudyWithMe, but better, and still free.
+              - paragraph [ref=e78]: Flocus has a customizable Pomodoro timer, tons of aesthetic themes, to-dos, focus stats, ambient sounds, quotes, daily streaks, and lots more. Check it out!
+              - paragraph [ref=e79]:
+                - link "Go to Flocus" [ref=e80] [cursor=pointer]:
+                  - /url: https://flocus.com/features/pomodoro-timer?utm_source=studywithme&utm_medium=web-tool&utm_campaign=flocus-signups&utm_content=button
+              - img [ref=e81]
+      - generic [ref=e82]:
+        - button "Reset all" [ref=e83] [cursor=pointer]
+        - button "Close" [ref=e84] [cursor=pointer]
+        - button "Save changes" [ref=e85] [cursor=pointer]
