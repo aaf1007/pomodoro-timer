@@ -21,7 +21,8 @@ export interface UseTimerReturn {
 }
 
 export function useTimer(
-  durations: TimerDurations = DEFAULT_DURATIONS
+  durations: TimerDurations = DEFAULT_DURATIONS,
+  onSessionEnd?: (mode: Mode) => void
 ): UseTimerReturn {
   const [sequence, setSequence] = useState<SequenceState>({
     mode: "pom",
@@ -33,8 +34,9 @@ export function useTimer(
   const endsAtRef = useRef<number | null>(null);
   const remainingRef = useRef(remaining);
   const durationsRef = useRef(durations);
+  const onSessionEndRef = useRef(onSessionEnd);
+  useLayoutEffect(() => { onSessionEndRef.current = onSessionEnd; });
 
-  // Keep refs in sync after every render (useLayoutEffect = synchronous, before paint)
   useLayoutEffect(() => {
     remainingRef.current = remaining;
     durationsRef.current = durations;
@@ -60,6 +62,7 @@ export function useTimer(
           endsAtRef.current = null;
           setRunning(false);
           setSequence((prev) => {
+            onSessionEndRef.current?.(prev.mode);
             const next = nextSequence(prev);
             const nextMs = durationsRef.current[next.mode] * 60 * 1000;
             setRemaining(nextMs);
