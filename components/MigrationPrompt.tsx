@@ -1,10 +1,13 @@
 "use client";
 
-import type { MigrationPromptState } from "@/lib/storage/useCloudSync";
+import type {
+  MigrationChoice,
+  MigrationPromptState,
+} from "@/lib/storage/useCloudSync";
 
 interface MigrationPromptProps {
   state: MigrationPromptState;
-  onResolve: (choice: "keep-cloud" | "overwrite-cloud" | "merge") => void;
+  onResolve: (choice: MigrationChoice) => void;
 }
 
 export default function MigrationPrompt({ state, onResolve }: MigrationPromptProps) {

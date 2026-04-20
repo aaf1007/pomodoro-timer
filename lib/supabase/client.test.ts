@@ -1,5 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { createClient } from "./client";
+import { createClient, __resetClientForTests } from "./client";
 
 jest.mock("@supabase/ssr", () => ({
   createBrowserClient: jest.fn(() => ({ auth: {} })),
@@ -9,6 +9,7 @@ jest.mock("@supabase/ssr", () => ({
 describe("lib/supabase/client", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    __resetClientForTests();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
   });

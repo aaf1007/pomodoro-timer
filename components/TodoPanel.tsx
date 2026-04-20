@@ -1,28 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { loadTodos, saveTodos, addTodo, toggleTodo, deleteTodo, type Todo } from "@/lib/storage/local";
+import { useState } from "react";
+import { addTodo, toggleTodo, deleteTodo, type Todo } from "@/lib/storage/local";
 
 interface TodoPanelProps {
-  todos?: Todo[];
-  setTodos?: (next: Todo[]) => void;
+  todos: Todo[];
+  setTodos: (next: Todo[]) => void;
 }
 
-export default function TodoPanel({ todos: todosProp, setTodos: setTodosProp }: TodoPanelProps = {}) {
-  const controlled = todosProp !== undefined && setTodosProp !== undefined;
-
-  const [internalTodos, setInternalTodos] = useState<Todo[]>(() =>
-    typeof window !== "undefined" && !controlled ? loadTodos() : []
-  );
+export default function TodoPanel({ todos, setTodos }: TodoPanelProps) {
   const [input, setInput] = useState("");
-
-  const todos = controlled ? (todosProp as Todo[]) : internalTodos;
-  const setTodos = controlled ? (setTodosProp as (next: Todo[]) => void) : setInternalTodos;
-
-  // In uncontrolled mode, persist to localStorage as before.
-  useEffect(() => {
-    if (!controlled) saveTodos(internalTodos);
-  }, [controlled, internalTodos]);
 
   function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
@@ -33,13 +20,11 @@ export default function TodoPanel({ todos: todosProp, setTodos: setTodosProp }: 
   }
 
   function handleToggle(id: string) {
-    const next = toggleTodo(todos, id);
-    setTodos(next);
+    setTodos(toggleTodo(todos, id));
   }
 
   function handleDelete(id: string) {
-    const next = deleteTodo(todos, id);
-    setTodos(next);
+    setTodos(deleteTodo(todos, id));
   }
 
   return (

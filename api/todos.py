@@ -88,7 +88,7 @@ def patch_todo(
     body: TodoPatch,
     client: Client = Depends(get_supabase_client),
 ) -> dict[str, Any]:
-    updates = {k: v for k, v in body.model_dump(exclude_none=True).items()}
+    updates = body.model_dump(exclude_none=True)
     if not updates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

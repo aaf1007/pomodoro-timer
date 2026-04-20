@@ -21,7 +21,7 @@ export interface MigrationPromptState {
   cloudCount: number;
 }
 
-type MigrationChoice = "keep-cloud" | "overwrite-cloud" | "merge";
+export type MigrationChoice = "keep-cloud" | "overwrite-cloud" | "merge";
 
 export interface UseCloudSyncResult {
   status: CloudSyncStatus;

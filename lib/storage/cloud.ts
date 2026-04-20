@@ -1,12 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CloudSettings, CloudTodo } from "./sync";
 
-// Accept the real SupabaseClient type. Tests inject a structurally-compatible
-// mock via `as unknown as SupabaseClient`.
-export type SupabaseLike = SupabaseClient;
-
 export async function fetchCloudSettings(
-  supabase: SupabaseLike,
+  supabase: SupabaseClient,
   userId: string,
 ): Promise<CloudSettings | null> {
   const { data, error } = await supabase
@@ -24,7 +20,7 @@ export async function fetchCloudSettings(
 }
 
 export async function upsertCloudSettings(
-  supabase: SupabaseLike,
+  supabase: SupabaseClient,
   userId: string,
   partial: Partial<CloudSettings>,
 ): Promise<void> {
@@ -40,7 +36,7 @@ export async function upsertCloudSettings(
 }
 
 export async function fetchCloudTodos(
-  supabase: SupabaseLike,
+  supabase: SupabaseClient,
   userId: string,
 ): Promise<CloudTodo[]> {
   const { data, error } = await supabase
@@ -53,23 +49,19 @@ export async function fetchCloudTodos(
 }
 
 export async function upsertCloudTodos(
-  supabase: SupabaseLike,
+  supabase: SupabaseClient,
   userId: string,
   todos: CloudTodo[],
 ): Promise<void> {
   if (todos.length === 0) return;
-  const now = new Date().toISOString();
-  const rows = todos.map((t) => ({
-    ...t,
-    user_id: userId,
-    updated_at: now,
-  }));
+  // Preserve each row's own updated_at so LWW merge decisions aren't overwritten.
+  const rows = todos.map((t) => ({ ...t, user_id: userId }));
   const { error } = await supabase.from("todos").upsert(rows, { onConflict: "id" });
   if (error) throw error;
 }
 
 export async function deleteCloudTodos(
-  supabase: SupabaseLike,
+  supabase: SupabaseClient,
   userId: string,
   ids: string[],
 ): Promise<void> {
