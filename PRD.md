@@ -162,8 +162,8 @@ Quality gates: `pnpm typecheck`, `pnpm lint`, Lighthouse a11y ≥ 90, background
 1. [x] **Scaffold** — `create-next-app`, Tailwind, Space Grotesk, empty `Timer` stub.
 2. [x] **Core timer** — drift-safe `useTimer`, mode pills, controls, sequence logic. All in-memory.
 3. [x] **Theme + backgrounds** — manifest, `BackgroundLayer`, one theme (Seoul) wired end-to-end, then the other three.
-4. [ ] **Audio + notifications + tab title** — side effects on session end.
-5. [ ] **Todos + localStorage** — right rail, full CRUD, persistence.
+4. [x] **Audio + notifications + tab title** — side effects on session end.
+5. [x] **Todos + localStorage** — right rail, full CRUD, persistence.
 6. [ ] **Settings modal** — all tabs, bound to state.
 7. [ ] **Supabase** — schema, RLS, auth UI, pull/push sync, migration prompt.
 8. [ ] **Polish + Vercel deploy** — meta tags, OG image, a11y pass, compressed assets.
