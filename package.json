@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@fontsource/space-grotesk": "^5.2.10",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.104.0",
     "next": "16.1.7",
     "react": "19.2.3",
     "react-dom": "19.2.3"

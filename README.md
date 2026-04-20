@@ -66,6 +66,22 @@ pnpm build
 pnpm start
 ```
 
+### Supabase setup
+
+Cloud sync is optional — the app runs fully anonymously against `localStorage`. To enable sign-in and cloud-synced settings/todos:
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Copy your project URL and anon key into a local `.env.local` file at the repo root:
+
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=...
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+   ```
+
+   A template lives in [`.env.local.example`](./.env.local.example). `.env.local` is gitignored.
+
+3. Open the Supabase SQL editor for your project and run [`supabase/schema.sql`](./supabase/schema.sql). This creates the `settings` and `todos` tables and enables Row-Level Security so each user can only read and write their own rows.
+
 ## Available Scripts
 
 ```bash
