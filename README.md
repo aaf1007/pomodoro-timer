@@ -82,6 +82,39 @@ Cloud sync is optional — the app runs fully anonymously against `localStorage`
 
 3. Open the Supabase SQL editor for your project and run [`supabase/schema.sql`](./supabase/schema.sql). This creates the `settings` and `todos` tables and enables Row-Level Security so each user can only read and write their own rows.
 
+## FastAPI backend
+
+The Python backend in `api/` implements the settings and todo routes listed under "Planned Backend Integration". Next.js rewrites `/api/py/:path*` to `http://127.0.0.1:8000/api/py/:path*` in development (see `next.config.ts`). On Vercel, the `api/*.py` files deploy as Python serverless functions automatically.
+
+### Required environment variables
+
+The Python process reads the same Supabase credentials as the frontend, without the `NEXT_PUBLIC_` prefix:
+
+```
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+```
+
+Put them in `.env.local` (already gitignored) or export them in the shell that runs uvicorn. The backend uses the user's `Authorization: Bearer <jwt>` header to construct a Supabase client; Row-Level Security enforces per-user isolation server-side.
+
+### Running FastAPI locally
+
+Install Python deps (one time):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Then, in a second terminal alongside `pnpm dev`:
+
+```bash
+uvicorn api.index:app --reload --port 8000
+```
+
+Smoke test: `curl http://127.0.0.1:8000/api/py/health` should return `{"ok":true}`.
+
 ## Available Scripts
 
 ```bash
