@@ -13,7 +13,7 @@ Aesthetic Pomodoro timer app — desktop-only, anonymous-by-default, optionally 
 - **pnpm** as the package manager
 - **Space Grotesk** via `@fontsource/space-grotesk`
 
-Backend (this worktree): FastAPI (`requirements.txt`), Supabase via `@supabase/ssr` + `supabase-py`.
+Backend: FastAPI (`requirements.txt`), Supabase via `@supabase/ssr` + `supabase-py`.
 
 ## Commands
 
@@ -67,7 +67,7 @@ Jest is configured via `next/jest` (`jest.config.ts`). The `@/` alias maps to th
 
 **Tests.** Colocated next to source (`lib/*.test.ts`) and in `__tests__/` for components. Patterns: React Testing Library for components, plain Jest for pure libs. `jest.setup.ts` pulls in `@testing-library/jest-dom`.
 
-## Architecture (Supabase + FastAPI, landed in this worktree)
+## Architecture (Supabase + FastAPI)
 
 **FastAPI entrypoint (`api/index.py`).** Mounts `api/settings.py` and `api/todos.py` under `/api/py`. Auth helper in `api/_auth.py` extracts the Supabase JWT from the `Authorization` header and hands it to a `supabase-py` client so all DB calls run under the caller's RLS identity — we deliberately do **not** verify the JWT ourselves; Supabase enforces user isolation via RLS. Adding a new route: create a FastAPI `APIRouter`, depend on `_auth.get_auth` (returns `AuthCtx = (client, user_id)`), and register it in `index.py` with `prefix="/api/py"`.
 
@@ -80,7 +80,7 @@ Jest is configured via `next/jest` (`jest.config.ts`). The `@/` alias maps to th
 
 **Cloud sync (`lib/storage/sync.ts`, `cloud.ts`, `cloudTodos.ts`, `useCloudSync.ts`).** Sync is **row-level LWW** using each row's `updated_at`, not per-field — the schema only tracks timestamps per row. `mergeSettings` picks whichever row is newer; `mergeTodos` merges by `id`, preferring the newer `updated_at` and preserving local insertion order for ties. `useCloudSync` debounces pushes (`PUSH_DEBOUNCE_MS = 400`). On first sign-in, `MigrationPrompt.tsx` offers keep-cloud / overwrite-cloud / merge (default = merge). Settings pull is wired on sign-in; settings push waits on the unified settings shape (Phase 6 TODO in `useCloudSync.ts`).
 
-**Auth UI.** `components/AuthButton.tsx` is the only auth surface so far — sign in / sign up / sign out. No dedicated account page.
+**Auth UI.** `components/AuthButton.tsx` is the only auth surface — sign in / sign up / sign out. No dedicated account page.
 
 ## Still planned (not in tree)
 
