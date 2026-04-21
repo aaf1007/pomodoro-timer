@@ -134,6 +134,38 @@ describe("useCloudSync", () => {
     );
   });
 
+  it("should_merge_silently_when_local_ids_subset_of_cloud", async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    const cloud = [
+      makeCloudTodo({ id: "a", label: "cloud-a" }),
+      makeCloudTodo({ id: "b", label: "cloud-b" }),
+    ];
+    fetchCloudTodos.mockResolvedValue(cloud);
+    const setTodosSpy = jest.fn();
+
+    const { result } = renderHook(() =>
+      useCloudSync({
+        todos: [makeTodo({ id: "a", label: "local-a" })],
+        setTodos: setTodosSpy,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("synced");
+    });
+    expect(result.current.migrationPrompt).toBeNull();
+    expect(setTodosSpy).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "a" }),
+        expect.objectContaining({ id: "b" }),
+      ]),
+    );
+    expect(upsertCloudTodos).not.toHaveBeenCalled();
+  });
+
   it("should_emit_migrationPrompt_when_both_sides_non_empty", async () => {
     getUser.mockResolvedValue({
       data: { user: { id: "user-1" } },

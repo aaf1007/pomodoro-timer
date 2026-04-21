@@ -107,7 +107,31 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
           return;
         }
 
-        // Both sides non-empty: prompt user.
+        // Prompt only when local has ids cloud doesn't know about — those are
+        // the only rows at risk if the user picks "keep-cloud". When every
+        // local id already exists in cloud, per-row LWW resolves differences
+        // silently so refreshes after merge don't re-prompt.
+        const cloudIds = new Set(cloudTodos.map((c) => c.id));
+        const hasLocalOnly = local.some((l) => !cloudIds.has(l.id));
+        if (!hasLocalOnly) {
+          const localAsCloud = toCloudTodos(local, uid);
+          const merged = mergeTodos(localAsCloud, cloudTodos);
+          const cloudByUpdated = new Map(
+            cloudTodos.map((c) => [c.id, c.updated_at]),
+          );
+          const toPush = merged.filter(
+            (m) => cloudByUpdated.get(m.id) !== m.updated_at,
+          );
+          if (toPush.length > 0) {
+            await upsertCloudTodos(supabase, uid, toPush);
+          }
+          setTodos(fromCloudTodos(merged));
+          snapshotSynced(merged);
+          initialSyncDoneRef.current = true;
+          setStatus("synced");
+          return;
+        }
+
         pendingMigrationRef.current = { local, cloud: cloudTodos };
         setMigrationPrompt({
           localCount: local.length,
