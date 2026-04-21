@@ -18,9 +18,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
-from supabase import Client
 
-from api._auth import get_supabase_client, get_user_id
+from api._auth import AuthCtx, get_auth
 
 router = APIRouter(tags=["todos"])
 
@@ -46,11 +45,9 @@ def _now_iso() -> str:
 
 
 @router.get("/todos")
-def list_todos(
-    client: Client = Depends(get_supabase_client),
-) -> list[dict[str, Any]]:
+def list_todos(auth: AuthCtx = Depends(get_auth)) -> list[dict[str, Any]]:
     resp = (
-        client.table("todos")
+        auth.client.table("todos")
         .select("*")
         .order("position", desc=False)
         .execute()
@@ -61,18 +58,17 @@ def list_todos(
 @router.post("/todos", status_code=status.HTTP_201_CREATED)
 def create_todo(
     body: TodoCreate,
-    client: Client = Depends(get_supabase_client),
-    user_id: str = Depends(get_user_id),
+    auth: AuthCtx = Depends(get_auth),
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "id": str(uuid.uuid4()),
-        "user_id": user_id,
+        "user_id": auth.user_id,
         "label": body.label,
         "done": body.done,
         "position": body.position,
         "updated_at": _now_iso(),
     }
-    resp = client.table("todos").insert(payload).execute()
+    resp = auth.client.table("todos").insert(payload).execute()
     rows = resp.data or []
     if not rows:
         raise HTTPException(
@@ -86,7 +82,7 @@ def create_todo(
 def patch_todo(
     todo_id: str,
     body: TodoPatch,
-    client: Client = Depends(get_supabase_client),
+    auth: AuthCtx = Depends(get_auth),
 ) -> dict[str, Any]:
     updates = body.model_dump(exclude_none=True)
     if not updates:
@@ -96,7 +92,7 @@ def patch_todo(
         )
     updates["updated_at"] = _now_iso()
     resp = (
-        client.table("todos")
+        auth.client.table("todos")
         .update(updates)
         .eq("id", todo_id)
         .execute()
@@ -114,9 +110,9 @@ def patch_todo(
 @router.delete("/todos/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_todo(
     todo_id: str,
-    client: Client = Depends(get_supabase_client),
+    auth: AuthCtx = Depends(get_auth),
 ) -> None:
-    resp = client.table("todos").delete().eq("id", todo_id).execute()
+    resp = auth.client.table("todos").delete().eq("id", todo_id).execute()
     if not (resp.data or []):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

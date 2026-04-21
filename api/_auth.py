@@ -2,17 +2,28 @@
 
 Extracts the user's Supabase JWT from the ``Authorization`` header and returns
 a supabase-py client that carries the token so queries execute under that
-user's Row-Level Security identity. We deliberately do NOT verify the JWT
-ourselves — we delegate to Supabase so RLS handles user isolation.
+user's Row-Level Security identity.
+
+We read ``sub`` from the JWT without verifying the signature because RLS on
+every table enforces ``auth.uid() = user_id`` — a forged claim cannot read
+another user's rows. Signature verification is Supabase's job; ours is just to
+surface the caller identity for write payloads.
 """
 
 from __future__ import annotations
 
 import os
 from functools import lru_cache
+from typing import NamedTuple
 
 from fastapi import Header, HTTPException, status
+from jose import jwt
 from supabase import Client, create_client
+
+
+class AuthCtx(NamedTuple):
+    client: Client
+    user_id: str
 
 
 def _missing_env(name: str) -> HTTPException:
@@ -48,41 +59,22 @@ def _parse_bearer(authorization: str | None) -> str:
     return parts[1]
 
 
-def get_supabase_client(authorization: str | None = Header(default=None)) -> Client:
-    """FastAPI dependency returning a supabase-py client bound to the user's JWT.
-
-    The client is constructed with the anon key, then the access token is
-    attached via PostgREST headers so RLS policies evaluate ``auth.uid()``
-    against the caller.
-    """
+def get_auth(authorization: str | None = Header(default=None)) -> AuthCtx:
     token = _parse_bearer(authorization)
-    url, anon_key = _supabase_config()
-    client: Client = create_client(url, anon_key)
-    # Attach the user's JWT so PostgREST requests run as that user under RLS.
-    client.postgrest.auth(token)
-    return client
-
-
-def get_user_id(authorization: str | None = Header(default=None)) -> str:
-    """FastAPI dependency returning the authenticated user's uuid.
-
-    Uses supabase-py's ``auth.get_user`` which validates the token against
-    Supabase. Avoids parsing/verifying JWTs ourselves.
-    """
-    token = _parse_bearer(authorization)
-    url, anon_key = _supabase_config()
-    client: Client = create_client(url, anon_key)
     try:
-        user_resp = client.auth.get_user(token)
-    except Exception as exc:  # network or validation failure
+        claims = jwt.get_unverified_claims(token)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
+            detail="Invalid token.",
         ) from exc
-    user = getattr(user_resp, "user", None)
-    if user is None or not getattr(user, "id", None):
+    user_id = claims.get("sub")
+    if not isinstance(user_id, str) or not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
+            detail="Token missing subject.",
         )
-    return user.id
+    url, anon_key = _supabase_config()
+    client: Client = create_client(url, anon_key)
+    client.postgrest.auth(token)
+    return AuthCtx(client=client, user_id=user_id)

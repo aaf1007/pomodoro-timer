@@ -12,9 +12,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
-from supabase import Client
 
-from api._auth import get_supabase_client, get_user_id
+from api._auth import AuthCtx, get_auth
 
 router = APIRouter(tags=["settings"])
 
@@ -34,10 +33,8 @@ class SettingsBody(BaseModel):
 
 
 @router.get("/settings")
-def get_settings(
-    client: Client = Depends(get_supabase_client),
-) -> dict[str, Any]:
-    resp = client.table("settings").select("*").limit(1).execute()
+def get_settings(auth: AuthCtx = Depends(get_auth)) -> dict[str, Any]:
+    resp = auth.client.table("settings").select("*").limit(1).execute()
     rows = resp.data or []
     if not rows:
         raise HTTPException(
@@ -50,16 +47,15 @@ def get_settings(
 @router.put("/settings")
 def put_settings(
     body: SettingsBody,
-    client: Client = Depends(get_supabase_client),
-    user_id: str = Depends(get_user_id),
+    auth: AuthCtx = Depends(get_auth),
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "user_id": user_id,
+        "user_id": auth.user_id,
         **body.model_dump(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     resp = (
-        client.table("settings")
+        auth.client.table("settings")
         .upsert(payload, on_conflict="user_id")
         .execute()
     )
