@@ -122,7 +122,6 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
     [supabase, setTodos],
   );
 
-  // Subscribe to auth state.
   useEffect(() => {
     let cancelled = false;
 
@@ -144,7 +143,6 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
         if (uid) {
           void runInitialSync(uid);
         } else {
-          // Sign out: reset status; do not touch local todos.
           lastSyncedRef.current = new Map();
           lastSyncedUidRef.current = null;
           pendingMigrationRef.current = null;
@@ -237,7 +235,6 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
           await deleteCloudTodos(supabase, uid, toDelete);
         }
 
-        // Update last-synced snapshot from current local state.
         const next = new Map<string, string>();
         for (const t of current) next.set(t.id, t.updated_at);
         lastSyncedRef.current = next;

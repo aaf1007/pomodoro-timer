@@ -1,3 +1,6 @@
+// Merges here are row-level LWW (not per-field) — the schema only tracks
+// updated_at per row.
+
 export interface CloudSettings {
   user_id: string;
   pomodoro_min: number;
@@ -21,7 +24,6 @@ export interface CloudTodo {
   updated_at: string;
 }
 
-// Row-level LWW (not per-field) — schema tracks updated_at per row only.
 export function mergeSettings(
   local: CloudSettings | null,
   cloud: CloudSettings | null,
@@ -32,7 +34,6 @@ export function mergeSettings(
   return local.updated_at > cloud.updated_at ? local : cloud;
 }
 
-// Row-level LWW (not per-field) — schema tracks updated_at per row only.
 export function mergeTodos(local: CloudTodo[], cloud: CloudTodo[]): CloudTodo[] {
   const byId = new Map<string, { todo: CloudTodo; order: number }>();
   let order = 0;
