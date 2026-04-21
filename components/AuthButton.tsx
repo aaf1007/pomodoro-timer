@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "signin" | "signup";
@@ -20,14 +20,6 @@ export default function AuthButton() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +88,7 @@ export default function AuthButton() {
         setInfo("Check your email to confirm your account.");
       }
     } finally {
-      if (mountedRef.current) setSubmitting(false);
+      setSubmitting(false);
     }
   }
 
