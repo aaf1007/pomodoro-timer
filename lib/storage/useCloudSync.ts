@@ -241,7 +241,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
         const next = new Map<string, string>();
         for (const t of current) next.set(t.id, t.updated_at);
         lastSyncedRef.current = next;
-        setStatus("synced");
+        setStatus((s) => (s === "synced" ? s : "synced"));
       } catch (err) {
         setStatus("error");
         setErrorMessage(errToMessage(err));
