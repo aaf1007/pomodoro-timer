@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { loadTodos, saveTodos, addTodo, toggleTodo, deleteTodo, type Todo } from "@/lib/storage/local";
+import { addTodo, toggleTodo, deleteTodo, type Todo } from "@/lib/storage/local";
 
-export default function TodoPanel() {
-  const [todos, setTodos] = useState<Todo[]>(() =>
-    typeof window !== "undefined" ? loadTodos() : []
-  );
+interface TodoPanelProps {
+  todos: Todo[];
+  setTodos: (next: Todo[]) => void;
+}
+
+export default function TodoPanel({ todos, setTodos }: TodoPanelProps) {
   const [input, setInput] = useState("");
 
   function handleSubmit(e: React.SyntheticEvent) {
@@ -14,20 +16,15 @@ export default function TodoPanel() {
     const { todos: next, added } = addTodo(todos, input);
     if (!added) return;
     setTodos(next);
-    saveTodos(next);
     setInput("");
   }
 
   function handleToggle(id: string) {
-    const next = toggleTodo(todos, id);
-    setTodos(next);
-    saveTodos(next);
+    setTodos(toggleTodo(todos, id));
   }
 
   function handleDelete(id: string) {
-    const next = deleteTodo(todos, id);
-    setTodos(next);
-    saveTodos(next);
+    setTodos(deleteTodo(todos, id));
   }
 
   return (
@@ -63,6 +60,9 @@ export default function TodoPanel() {
           placeholder="Add task"
           className="flex-1 bg-transparent border-b border-white/30 text-white text-sm placeholder:text-white/40 outline-none pb-1"
         />
+        <button type="submit" className="sr-only">
+          Add task
+        </button>
       </form>
     </div>
   );
