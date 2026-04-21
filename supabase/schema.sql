@@ -3,7 +3,7 @@
 -- Both tables are protected by Row-Level Security using auth.uid() = user_id.
 
 create table settings (
-  user_id uuid primary key references auth.users,
+  user_id uuid primary key references auth.users on delete cascade,
   pomodoro_min int default 25,
   short_min int default 5,
   long_min int default 15,
@@ -18,7 +18,7 @@ create table settings (
 
 create table todos (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users,
+  user_id uuid not null references auth.users on delete cascade,
   label text not null,
   done boolean default false,
   position int not null,
