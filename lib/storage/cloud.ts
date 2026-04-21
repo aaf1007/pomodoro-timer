@@ -24,10 +24,12 @@ export async function upsertCloudSettings(
   userId: string,
   partial: Partial<CloudSettings>,
 ): Promise<void> {
+  // Preserve caller-supplied updated_at so LWW compares against the real
+  // source-of-truth timestamp. Only synthesize one if the caller didn't.
   const row = {
     ...partial,
     user_id: userId,
-    updated_at: new Date().toISOString(),
+    updated_at: partial.updated_at ?? new Date().toISOString(),
   };
   const { error } = await supabase
     .from("settings")

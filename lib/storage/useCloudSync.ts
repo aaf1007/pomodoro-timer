@@ -12,6 +12,11 @@ import {
   upsertCloudTodos,
 } from "./cloud";
 
+function filterToPush(merged: CloudTodo[], cloud: CloudTodo[]): CloudTodo[] {
+  const cloudByUpdated = new Map(cloud.map((c) => [c.id, c.updated_at]));
+  return merged.filter((m) => cloudByUpdated.get(m.id) !== m.updated_at);
+}
+
 export type CloudSyncStatus = "anonymous" | "loading" | "synced" | "error";
 
 export interface MigrationPromptState {
@@ -63,6 +68,10 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
   // getUser() on mount and onAuthStateChange's INITIAL_SESSION both fire for
   // the same uid; without this guard initial sync runs twice.
   const lastSyncedUidRef = useRef<string | null>(null);
+  // Serializes diffPush invocations. The debounce only bounds *starts*; if
+  // one push runs long, another can fire before it completes and clobber
+  // lastSyncedRef out of order. Each push awaits its predecessor.
+  const pushInFlightRef = useRef<Promise<void> | null>(null);
 
   function snapshotSynced(cloud: CloudTodo[]) {
     const map = new Map<string, string>();
@@ -116,12 +125,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
         if (!hasLocalOnly) {
           const localAsCloud = toCloudTodos(local, uid);
           const merged = mergeTodos(localAsCloud, cloudTodos);
-          const cloudByUpdated = new Map(
-            cloudTodos.map((c) => [c.id, c.updated_at]),
-          );
-          const toPush = merged.filter(
-            (m) => cloudByUpdated.get(m.id) !== m.updated_at,
-          );
+          const toPush = filterToPush(merged, cloudTodos);
           if (toPush.length > 0) {
             await upsertCloudTodos(supabase, uid, toPush);
           }
@@ -171,6 +175,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
           lastSyncedUidRef.current = null;
           pendingMigrationRef.current = null;
           initialSyncDoneRef.current = false;
+          pushInFlightRef.current = null;
           setMigrationPrompt(null);
           setErrorMessage(null);
           setStatus("anonymous");
@@ -211,10 +216,16 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
             }
             snapshotSynced(localAsCloud);
           } else {
-            // merge (default)
+            // merge (default): re-fetch so any edits made since the prompt
+            // appeared are picked up, then push only the rows where our
+            // merge picked local over cloud.
+            const freshCloud = await fetchCloudTodos(supabase, uid);
             const localAsCloud = toCloudTodos(pending.local, uid);
-            const merged = mergeTodos(localAsCloud, pending.cloud);
-            await upsertCloudTodos(supabase, uid, merged);
+            const merged = mergeTodos(localAsCloud, freshCloud);
+            const toPush = filterToPush(merged, freshCloud);
+            if (toPush.length > 0) {
+              await upsertCloudTodos(supabase, uid, toPush);
+            }
             setTodos(fromCloudTodos(merged));
             snapshotSynced(merged);
           }
@@ -230,42 +241,63 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
   );
 
   const diffPush = useCallback(
-    async (uid: string) => {
-      try {
-        const current = todosRef.current;
-        const last = lastSyncedRef.current;
-
-        const toUpsert: CloudTodo[] = [];
-        const currentIds = new Set<string>();
-        for (const t of current) {
-          currentIds.add(t.id);
-          const lastUpdated = last.get(t.id);
-          if (lastUpdated === undefined || lastUpdated !== t.updated_at) {
-            toUpsert.push(toCloudTodo(t, uid));
+    async (uid: string): Promise<void> => {
+      // Chain onto any in-flight push so lastSyncedRef updates happen in
+      // request order, even when a slow push is followed by a fast one.
+      const prior = pushInFlightRef.current;
+      const run = (async () => {
+        if (prior) {
+          try {
+            await prior;
+          } catch {
+            // Prior push's error has already been surfaced via state; don't
+            // let it bubble into ours.
           }
         }
 
-        const toDelete: string[] = [];
-        for (const id of last.keys()) {
-          if (!currentIds.has(id)) toDelete.push(id);
-        }
+        try {
+          const current = todosRef.current;
+          const last = lastSyncedRef.current;
 
-        if (toUpsert.length === 0 && toDelete.length === 0) return;
+          const toUpsert: CloudTodo[] = [];
+          const currentIds = new Set<string>();
+          for (const t of current) {
+            currentIds.add(t.id);
+            const lastUpdated = last.get(t.id);
+            if (lastUpdated === undefined || lastUpdated !== t.updated_at) {
+              toUpsert.push(toCloudTodo(t, uid));
+            }
+          }
 
-        if (toUpsert.length > 0) {
-          await upsertCloudTodos(supabase, uid, toUpsert);
-        }
-        if (toDelete.length > 0) {
-          await deleteCloudTodos(supabase, uid, toDelete);
-        }
+          const toDelete: string[] = [];
+          for (const id of last.keys()) {
+            if (!currentIds.has(id)) toDelete.push(id);
+          }
 
-        const next = new Map<string, string>();
-        for (const t of current) next.set(t.id, t.updated_at);
-        lastSyncedRef.current = next;
-        setStatus((s) => (s === "synced" ? s : "synced"));
-      } catch (err) {
-        setStatus("error");
-        setErrorMessage(errToMessage(err));
+          if (toUpsert.length === 0 && toDelete.length === 0) return;
+
+          if (toUpsert.length > 0) {
+            await upsertCloudTodos(supabase, uid, toUpsert);
+          }
+          if (toDelete.length > 0) {
+            await deleteCloudTodos(supabase, uid, toDelete);
+          }
+
+          const next = new Map<string, string>();
+          for (const t of current) next.set(t.id, t.updated_at);
+          lastSyncedRef.current = next;
+          setStatus("synced");
+        } catch (err) {
+          setStatus("error");
+          setErrorMessage(errToMessage(err));
+        }
+      })();
+
+      pushInFlightRef.current = run;
+      try {
+        await run;
+      } finally {
+        if (pushInFlightRef.current === run) pushInFlightRef.current = null;
       }
     },
     [supabase],
