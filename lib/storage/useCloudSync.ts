@@ -3,14 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Todo } from "./local";
-import type { CloudSettings, CloudTodo } from "./sync";
+import type { CloudTodo } from "./sync";
 import { mergeTodos } from "./sync";
 import { fromCloudTodos, toCloudTodo, toCloudTodos } from "./cloudTodos";
 import {
   deleteCloudTodos,
-  fetchCloudSettings,
   fetchCloudTodos,
-  upsertCloudSettings,
   upsertCloudTodos,
 } from "./cloud";
 
@@ -36,25 +34,6 @@ interface UseCloudSyncOptions {
 }
 
 const PUSH_DEBOUNCE_MS = 400;
-
-// TODO(phase-6): once the unified local settings shape exists, map it into
-// `Partial<CloudSettings>` and pipe through `pushLocalSettings` / apply results
-// from `pullCloudSettings`. For now we only call pull on sign-in so the signed-in
-// plumbing is exercised; Phase 6 will wire push from the SettingsModal.
-export async function pullCloudSettings(
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-): Promise<CloudSettings | null> {
-  return fetchCloudSettings(supabase, userId);
-}
-
-export async function pushLocalSettings(
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-  partial: Partial<CloudSettings>,
-): Promise<void> {
-  return upsertCloudSettings(supabase, userId, partial);
-}
 
 export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
   const { todos, setTodos } = opts;
@@ -94,10 +73,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
       setErrorMessage(null);
       initialSyncDoneRef.current = false;
       try {
-        const [cloudTodos] = await Promise.all([
-          fetchCloudTodos(supabase, uid),
-          pullCloudSettings(supabase, uid),
-        ]);
+        const cloudTodos = await fetchCloudTodos(supabase, uid);
         const local = todosRef.current;
 
         if (cloudTodos.length === 0 && local.length === 0) {

@@ -16,16 +16,12 @@ jest.mock("@/lib/supabase/client", () => ({
 }));
 
 const fetchCloudTodos = jest.fn();
-const fetchCloudSettings = jest.fn();
 const upsertCloudTodos = jest.fn();
-const upsertCloudSettings = jest.fn();
 const deleteCloudTodos = jest.fn();
 
 jest.mock("./cloud", () => ({
   fetchCloudTodos: (...args: unknown[]) => fetchCloudTodos(...args),
-  fetchCloudSettings: (...args: unknown[]) => fetchCloudSettings(...args),
   upsertCloudTodos: (...args: unknown[]) => upsertCloudTodos(...args),
-  upsertCloudSettings: (...args: unknown[]) => upsertCloudSettings(...args),
   deleteCloudTodos: (...args: unknown[]) => deleteCloudTodos(...args),
 }));
 
@@ -70,12 +66,9 @@ beforeEach(() => {
   getUser.mockReset();
   onAuthStateChange.mockReset();
   fetchCloudTodos.mockReset();
-  fetchCloudSettings.mockReset();
   upsertCloudTodos.mockReset();
-  upsertCloudSettings.mockReset();
   deleteCloudTodos.mockReset();
 
-  fetchCloudSettings.mockResolvedValue(null);
   upsertCloudTodos.mockResolvedValue(undefined);
   deleteCloudTodos.mockResolvedValue(undefined);
 
