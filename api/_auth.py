@@ -12,12 +12,13 @@ surface the caller identity for write payloads.
 
 from __future__ import annotations
 
+import base64
+import json
 import os
 from functools import lru_cache
 from typing import NamedTuple
 
 from fastapi import Header, HTTPException, status
-from jose import jwt
 from supabase import Client, create_client
 
 
@@ -59,17 +60,29 @@ def _parse_bearer(authorization: str | None) -> str:
     return parts[1]
 
 
+def _unverified_sub(token: str) -> str | None:
+    # JWT = base64url(header).base64url(payload).signature. We only need `sub`
+    # from the payload; signature verification is Supabase's job (enforced via
+    # RLS downstream). Parsing without verification here keeps us off heavy
+    # crypto deps for a one-field read.
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+    payload = parts[1]
+    padding = "=" * (-len(payload) % 4)
+    try:
+        decoded = base64.urlsafe_b64decode(payload + padding)
+        claims = json.loads(decoded)
+    except (ValueError, json.JSONDecodeError):
+        return None
+    sub = claims.get("sub") if isinstance(claims, dict) else None
+    return sub if isinstance(sub, str) and sub else None
+
+
 def get_auth(authorization: str | None = Header(default=None)) -> AuthCtx:
     token = _parse_bearer(authorization)
-    try:
-        claims = jwt.get_unverified_claims(token)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token.",
-        ) from exc
-    user_id = claims.get("sub")
-    if not isinstance(user_id, str) or not user_id:
+    user_id = _unverified_sub(token)
+    if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token missing subject.",
