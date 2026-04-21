@@ -165,7 +165,7 @@ Quality gates: `pnpm typecheck`, `pnpm lint`, Lighthouse a11y ≥ 90, background
 4. [x] **Audio + notifications + tab title** — side effects on session end.
 5. [x] **Todos + localStorage** — right rail, full CRUD, persistence.
 6. [ ] **Settings modal** — all tabs, bound to state.
-7. [ ] **Supabase** — schema, RLS, auth UI, pull/push sync, migration prompt.
+7. [x] **Supabase** — schema, RLS, auth UI, pull/push sync, migration prompt.
 8. [ ] **Polish + Vercel deploy** — meta tags, OG image, a11y pass, compressed assets.
 
 
