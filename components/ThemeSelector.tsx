@@ -13,6 +13,7 @@ export default function ThemeSelector({ current, onChange }: Props) {
       {THEMES.map((theme) => (
         <button
           key={theme.id}
+          type="button"
           aria-label={theme.label}
           title={theme.label}
           onClick={() => onChange(theme.id)}

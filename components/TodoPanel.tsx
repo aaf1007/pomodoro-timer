@@ -60,6 +60,9 @@ export default function TodoPanel({ todos, setTodos }: TodoPanelProps) {
           placeholder="Add task"
           className="flex-1 bg-transparent border-b border-white/30 text-white text-sm placeholder:text-white/40 outline-none pb-1"
         />
+        <button type="submit" className="sr-only">
+          Add task
+        </button>
       </form>
     </div>
   );

@@ -12,6 +12,8 @@ import { loadTodos, saveTodos, type Todo } from "@/lib/storage/local";
 import { useCloudSync } from "@/lib/storage/useCloudSync";
 
 export default function Home() {
+  // Theme is not persisted yet; resets to the default on every reload. Phase 6
+  // (Settings modal) will unify this into the settings shape that cloud-syncs.
   const [themeId, setThemeId] = useState<ThemeId>(DEFAULT_THEME_ID);
   const theme = getTheme(themeId);
 

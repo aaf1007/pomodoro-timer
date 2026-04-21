@@ -1,5 +1,7 @@
 // Merges here are row-level LWW (not per-field) — the schema only tracks
-// updated_at per row.
+// updated_at per row. mergeTodos merges by id (cloud wins on updated_at
+// ties) and the result is sorted by `position`, with local insertion order
+// as the position-tiebreaker.
 
 export interface CloudSettings {
   user_id: string;

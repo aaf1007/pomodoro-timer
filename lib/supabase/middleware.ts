@@ -17,6 +17,9 @@ export async function updateSession(
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // Canonical @supabase/ssr pattern: write cookies to the incoming
+          // request so downstream reads see them, then rebuild the response
+          // and re-apply. See https://supabase.com/docs/guides/auth/server-side/nextjs
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
