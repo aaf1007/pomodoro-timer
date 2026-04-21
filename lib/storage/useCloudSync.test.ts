@@ -331,6 +331,109 @@ describe("useCloudSync", () => {
     expect(fetchCloudTodos).toHaveBeenCalledTimes(1);
   });
 
+  it("should_push_only_local_newer_rows_in_subset_merge", async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    const cloud = [
+      makeCloudTodo({
+        id: "a",
+        label: "cloud-a",
+        updated_at: "2026-04-18T00:00:00.000Z",
+      }),
+      makeCloudTodo({
+        id: "b",
+        label: "cloud-b",
+        updated_at: "2026-04-18T00:00:00.000Z",
+      }),
+    ];
+    fetchCloudTodos.mockResolvedValue(cloud);
+    const setTodosSpy = jest.fn();
+
+    const { result } = renderHook(() =>
+      useCloudSync({
+        todos: [
+          makeTodo({
+            id: "a",
+            label: "local-a-newer",
+            updated_at: "2026-04-20T00:00:00.000Z",
+          }),
+        ],
+        setTodos: setTodosSpy,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("synced");
+    });
+    expect(result.current.migrationPrompt).toBeNull();
+    expect(upsertCloudTodos).toHaveBeenCalledTimes(1);
+    const pushedRows = upsertCloudTodos.mock.calls[0][2] as CloudTodo[];
+    expect(pushedRows).toHaveLength(1);
+    expect(pushedRows[0]).toMatchObject({ id: "a", label: "local-a-newer" });
+  });
+
+  it("should_set_status_error_when_push_fails_on_initial_sync", async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    fetchCloudTodos.mockResolvedValue([]);
+    upsertCloudTodos.mockRejectedValueOnce(new Error("network boom"));
+    const h = makeHarness([makeTodo({ id: "a" })]);
+
+    const { result } = renderHook(() =>
+      useCloudSync({ todos: h.todos, setTodos: h.setTodos }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("error");
+    });
+    expect(result.current.errorMessage).toMatch(/boom/i);
+  });
+
+  it("should_resync_after_sign_out_and_back_in_same_uid", async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    fetchCloudTodos.mockResolvedValue([]);
+
+    let capturedCb:
+      | ((event: string, session: { user?: { id: string } } | null) => void)
+      | null = null;
+    onAuthStateChange.mockImplementation((cb) => {
+      capturedCb = cb;
+      return { data: { subscription: { unsubscribe: jest.fn() } } };
+    });
+
+    const h = makeHarness();
+    const { result } = renderHook(() =>
+      useCloudSync({ todos: h.todos, setTodos: h.setTodos }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("synced");
+    });
+    expect(fetchCloudTodos).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      capturedCb?.("SIGNED_OUT", null);
+    });
+    await waitFor(() => {
+      expect(result.current.status).toBe("anonymous");
+    });
+
+    await act(async () => {
+      capturedCb?.("SIGNED_IN", { user: { id: "user-1" } });
+    });
+    await waitFor(() => {
+      expect(result.current.status).toBe("synced");
+    });
+    expect(fetchCloudTodos).toHaveBeenCalledTimes(2);
+  });
+
   it("should_set_status_error_when_fetch_fails", async () => {
     getUser.mockResolvedValue({
       data: { user: { id: "user-1" } },
