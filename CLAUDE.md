@@ -13,7 +13,7 @@ Aesthetic Pomodoro timer app — desktop-only, anonymous-by-default, optionally 
 - **pnpm** as the package manager
 - **Space Grotesk** via `@fontsource/space-grotesk`
 
-Planned (not yet in the tree — see "Planned" section below): FastAPI, Supabase, `@supabase/ssr`.
+Backend (this worktree): FastAPI (`requirements.txt`), Supabase via `@supabase/ssr` + `supabase-py`.
 
 ## Commands
 
@@ -31,7 +31,15 @@ pnpm test -- __tests__/TodoPanel.test.tsx
 
 # Run tests matching a name:
 pnpm test -- -t "drift"
+
+# FastAPI backend (needed for /api/py/* to resolve in dev):
+pip install -r requirements.txt
+uvicorn api.index:app --reload --port 8000
 ```
+
+`next.config.ts` rewrites `/api/py/:path*` to `http://127.0.0.1:8000/api/py/:path*`, so dev requires both `pnpm dev` and uvicorn running. On Vercel, files in `api/` ship as Python serverless functions; `api/index.py` exposes `app` as the ASGI handler.
+
+Backend env (FastAPI reads these; distinct from the `NEXT_PUBLIC_*` ones the browser uses): `SUPABASE_URL`, `SUPABASE_ANON_KEY`. Frontend env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (see `.env.local.example`).
 
 Jest is configured via `next/jest` (`jest.config.ts`). The `@/` alias maps to the repo root, so imports mirror app code (`import { ... } from "@/lib/..."`). Setup file: `jest.setup.ts`.
 
@@ -41,7 +49,7 @@ Jest is configured via `next/jest` (`jest.config.ts`). The `@/` alias maps to th
 
 ## Architecture (implemented)
 
-**Single-page app.** `app/page.tsx` is the only route. `app/layout.tsx` wires fonts + metadata. No API routes yet.
+**Single-page app.** `app/page.tsx` is the only Next.js route. `app/layout.tsx` wires fonts + metadata. All backend calls go through FastAPI at `/api/py/*`.
 
 **Timer engine (`lib/timer/useTimer.ts`).** Drift-safe: on `start` it captures `endsAt = Date.now() + remainingMs` in a ref, then a `requestAnimationFrame` loop recomputes `remaining = endsAt - Date.now()` and calls `setRemaining` at most every 250 ms. Do **not** reintroduce `setInterval`-style decrement. When `remaining` hits 0 the loop fires `onSessionEnd(mode)`, advances the sequence, and pre-loads the next mode's duration.
 
@@ -59,15 +67,26 @@ Jest is configured via `next/jest` (`jest.config.ts`). The `@/` alias maps to th
 
 **Tests.** Colocated next to source (`lib/*.test.ts`) and in `__tests__/` for components. Patterns: React Testing Library for components, plain Jest for pure libs. `jest.setup.ts` pulls in `@testing-library/jest-dom`.
 
-## Architecture (planned — not in tree yet)
+## Architecture (Supabase + FastAPI, landed in this worktree)
 
-The `supabase` worktree exists to land these. Don't reference them as present-tense in code or commits until they ship.
+**FastAPI entrypoint (`api/index.py`).** Mounts `api/settings.py` and `api/todos.py` under `/api/py`. Auth helper in `api/_auth.py` extracts the Supabase JWT from the `Authorization` header and hands it to a `supabase-py` client so all DB calls run under the caller's RLS identity — we deliberately do **not** verify the JWT ourselves; Supabase enforces user isolation via RLS. Adding a new route: create a FastAPI `APIRouter`, depend on `_auth.get_auth` (returns `AuthCtx = (client, user_id)`), and register it in `index.py` with `prefix="/api/py"`.
 
-- **FastAPI routes** under `/api/py/*` (Next.js rewrites in `next.config.ts` already point to `http://127.0.0.1:8000/api/py/:path*`). `api/index.py` entrypoint; `api/settings.py`, `api/todos.py` handlers. On Vercel, `api/*.py` deploys as Python serverless functions.
-- **Supabase auth + DB.** Browser client `lib/supabase/client.ts`; server client `lib/supabase/server.ts`; session refresh via root `middleware.ts` wrapping `lib/supabase/middleware.ts`. Schema in `supabase/schema.sql` with RLS on `settings` and `todos`.
-- **Cloud sync (`lib/storage/sync.ts`).** Last-write-wins per field using `updated_at`. On first sign-in, prompt the user to keep cloud / overwrite / merge (default = merge).
+**Supabase clients.**
+- Browser: `lib/supabase/client.ts` (`@supabase/ssr` `createBrowserClient`).
+- Server components / route handlers: `lib/supabase/server.ts`.
+- Session refresh: root `middleware.ts` delegates to `lib/supabase/middleware.ts`. The matcher **skips `/api/*`** (FastAPI owns its own auth) and static assets — don't broaden it without care.
+
+**Schema (`supabase/schema.sql`).** Two tables, `settings` (user_id PK) and `todos` (id PK + user_id FK), both with RLS policies restricting select/insert/update/delete to `auth.uid() = user_id`. Index: `todos (user_id, position)`. Run the file in the Supabase SQL editor.
+
+**Cloud sync (`lib/storage/sync.ts`, `cloud.ts`, `cloudTodos.ts`, `useCloudSync.ts`).** Sync is **row-level LWW** using each row's `updated_at`, not per-field — the schema only tracks timestamps per row. `mergeSettings` picks whichever row is newer; `mergeTodos` merges by `id`, preferring the newer `updated_at` and preserving local insertion order for ties. `useCloudSync` debounces pushes (`PUSH_DEBOUNCE_MS = 400`). On first sign-in, `MigrationPrompt.tsx` offers keep-cloud / overwrite-cloud / merge (default = merge). Settings pull is wired on sign-in; settings push waits on the unified settings shape (Phase 6 TODO in `useCloudSync.ts`).
+
+**Auth UI.** `components/AuthButton.tsx` is the only auth surface so far — sign in / sign up / sign out. No dedicated account page.
+
+## Still planned (not in tree)
+
 - **Favicon countdown.** `<canvas>` → dataURL → `<link rel="icon">` swap each second while running.
-- **Remaining UI:** `SettingsModal.tsx` (Timer / Sounds / General / Account tabs), `MusicEmbed.tsx` (collapsible Spotify/YouTube lofi iframe).
+- **`SettingsModal.tsx`** (Timer / Sounds / General / Account tabs) — once this lands, settings push needs to be wired per the TODO in `lib/storage/useCloudSync.ts`.
+- **`MusicEmbed.tsx`** collapsible Spotify/YouTube lofi iframe.
 
 ## Quality gates
 
