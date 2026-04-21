@@ -30,6 +30,7 @@ export interface UseCloudSyncResult {
   status: CloudSyncStatus;
   migrationPrompt: MigrationPromptState | null;
   resolveMigration: (choice: MigrationChoice) => void;
+  isResolvingMigration: boolean;
   errorMessage: string | null;
 }
 
@@ -49,6 +50,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [migrationPrompt, setMigrationPrompt] =
     useState<MigrationPromptState | null>(null);
+  const [isResolvingMigration, setIsResolvingMigration] = useState(false);
 
   // Latest todos snapshot for async callbacks without stale-closure bugs.
   const todosRef = useRef<Todo[]>(todos);
@@ -177,6 +179,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
           initialSyncDoneRef.current = false;
           pushInFlightRef.current = null;
           setMigrationPrompt(null);
+          setIsResolvingMigration(false);
           setErrorMessage(null);
           setStatus("anonymous");
         }
@@ -196,6 +199,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
       if (!pending || !uid) return;
       pendingMigrationRef.current = null;
       setMigrationPrompt(null);
+      setIsResolvingMigration(true);
 
       (async () => {
         try {
@@ -234,6 +238,8 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
         } catch (err) {
           setStatus("error");
           setErrorMessage(errToMessage(err));
+        } finally {
+          setIsResolvingMigration(false);
         }
       })();
     },
@@ -321,7 +327,13 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
     };
   }, [todos, userId, diffPush]);
 
-  return { status, migrationPrompt, resolveMigration, errorMessage };
+  return {
+    status,
+    migrationPrompt,
+    resolveMigration,
+    isResolvingMigration,
+    errorMessage,
+  };
 }
 
 function errToMessage(err: unknown): string {

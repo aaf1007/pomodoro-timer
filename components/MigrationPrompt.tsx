@@ -8,15 +8,20 @@ import type {
 interface MigrationPromptProps {
   state: MigrationPromptState;
   onResolve: (choice: MigrationChoice) => void;
+  isResolving?: boolean;
 }
 
-export default function MigrationPrompt({ state, onResolve }: MigrationPromptProps) {
+export default function MigrationPrompt({
+  state,
+  onResolve,
+  isResolving = false,
+}: MigrationPromptProps) {
   const { localCount, cloudCount } = state;
 
   const btnClass =
-    "px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm backdrop-blur-sm transition-colors cursor-pointer";
+    "px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm backdrop-blur-sm transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed";
   const primaryClass =
-    "px-3 py-1.5 rounded-full bg-white text-gray-900 text-sm font-semibold hover:bg-white/90 transition-colors cursor-pointer";
+    "px-3 py-1.5 rounded-full bg-white text-gray-900 text-sm font-semibold hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed";
 
   return (
     <div
@@ -35,6 +40,7 @@ export default function MigrationPrompt({ state, onResolve }: MigrationPromptPro
           <button
             type="button"
             onClick={() => onResolve("merge")}
+            disabled={isResolving}
             className={primaryClass}
           >
             Merge
@@ -42,6 +48,7 @@ export default function MigrationPrompt({ state, onResolve }: MigrationPromptPro
           <button
             type="button"
             onClick={() => onResolve("keep-cloud")}
+            disabled={isResolving}
             className={btnClass}
           >
             Keep cloud
@@ -49,6 +56,7 @@ export default function MigrationPrompt({ state, onResolve }: MigrationPromptPro
           <button
             type="button"
             onClick={() => onResolve("overwrite-cloud")}
+            disabled={isResolving}
             className={btnClass}
           >
             Overwrite cloud

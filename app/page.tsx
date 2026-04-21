@@ -25,7 +25,10 @@ export default function Home() {
     saveTodos(todos);
   }, [todos]);
 
-  const { migrationPrompt, resolveMigration } = useCloudSync({ todos, setTodos });
+  const { migrationPrompt, resolveMigration, isResolvingMigration } = useCloudSync({
+    todos,
+    setTodos,
+  });
 
   return (
     <>
@@ -41,7 +44,11 @@ export default function Home() {
         <ThemeSelector current={themeId} onChange={setThemeId} />
       </div>
       {migrationPrompt && (
-        <MigrationPrompt state={migrationPrompt} onResolve={resolveMigration} />
+        <MigrationPrompt
+          state={migrationPrompt}
+          onResolve={resolveMigration}
+          isResolving={isResolvingMigration}
+        />
       )}
     </>
   );

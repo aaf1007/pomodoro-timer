@@ -93,7 +93,19 @@ export default function AuthButton() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    setError(null);
+    try {
+      const { error: err } = await supabase.auth.signOut();
+      if (err) {
+        setError(err.message);
+        // If the network round-trip failed, drop local state so the user
+        // can retry sign-in instead of being stuck visually signed-in.
+        setUser(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign out failed");
+      setUser(null);
+    }
   }
 
   const btnClass =
