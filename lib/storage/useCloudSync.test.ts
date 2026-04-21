@@ -268,6 +268,37 @@ describe("useCloudSync", () => {
     );
   });
 
+  it("should_run_initial_sync_once_when_INITIAL_SESSION_fires_after_getUser", async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    fetchCloudTodos.mockResolvedValue([]);
+
+    let capturedCb:
+      | ((event: string, session: { user?: { id: string } } | null) => void)
+      | null = null;
+    onAuthStateChange.mockImplementation((cb) => {
+      capturedCb = cb;
+      return { data: { subscription: { unsubscribe: jest.fn() } } };
+    });
+
+    const { result } = renderHook(() =>
+      useCloudSync({ todos: [], setTodos: jest.fn() }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("synced");
+    });
+    expect(fetchCloudTodos).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      capturedCb?.("INITIAL_SESSION", { user: { id: "user-1" } });
+    });
+
+    expect(fetchCloudTodos).toHaveBeenCalledTimes(1);
+  });
+
   it("should_set_status_error_when_fetch_fails", async () => {
     getUser.mockResolvedValue({
       data: { user: { id: "user-1" } },

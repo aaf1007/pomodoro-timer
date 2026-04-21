@@ -60,6 +60,9 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
   } | null>(null);
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialSyncDoneRef = useRef(false);
+  // getUser() on mount and onAuthStateChange's INITIAL_SESSION both fire for
+  // the same uid; without this guard initial sync runs twice.
+  const lastSyncedUidRef = useRef<string | null>(null);
 
   function snapshotSynced(cloud: CloudTodo[]) {
     const map = new Map<string, string>();
@@ -69,6 +72,8 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
 
   const runInitialSync = useCallback(
     async (uid: string) => {
+      if (lastSyncedUidRef.current === uid) return;
+      lastSyncedUidRef.current = uid;
       setStatus("loading");
       setErrorMessage(null);
       initialSyncDoneRef.current = false;
@@ -141,6 +146,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
         } else {
           // Sign out: reset status; do not touch local todos.
           lastSyncedRef.current = new Map();
+          lastSyncedUidRef.current = null;
           pendingMigrationRef.current = null;
           initialSyncDoneRef.current = false;
           setMigrationPrompt(null);
