@@ -55,7 +55,7 @@ describe("SettingsModal", () => {
     const user = userEvent.setup();
     render(<Harness />);
     await user.click(screen.getByText("open"));
-    expect(screen.getByText("timer tab")).toBeInTheDocument();
+    expect(screen.getByLabelText(/pomodoro/i)).toBeInTheDocument();
   });
 
   it("should_switch_panel_when_tab_clicked", async () => {
@@ -63,8 +63,8 @@ describe("SettingsModal", () => {
     render(<Harness />);
     await user.click(screen.getByText("open"));
     await user.click(screen.getByRole("button", { name: "Sounds" }));
-    expect(screen.getByText("sounds tab")).toBeInTheDocument();
-    expect(screen.queryByText("timer tab")).toBeNull();
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/pomodoro/i)).toBeNull();
   });
 
   it("should_call_onClose_when_Escape_pressed", async () => {

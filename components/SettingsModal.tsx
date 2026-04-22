@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Settings } from "@/lib/storage/local";
+import SettingsTabTimer from "./SettingsTabTimer";
+import SettingsTabSounds from "./SettingsTabSounds";
+import SettingsTabGeneral from "./SettingsTabGeneral";
+import SettingsTabAccount from "./SettingsTabAccount";
 
 interface SettingsModalProps {
   open: boolean;
@@ -21,6 +25,8 @@ type Tab = (typeof TABS)[number];
 export default function SettingsModal({
   open,
   onClose,
+  settings,
+  onChange,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>("timer");
   const firstTabRef = useRef<HTMLButtonElement>(null);
@@ -83,7 +89,20 @@ export default function SettingsModal({
             );
           })}
         </div>
-        <div>{activeTab} tab</div>
+        <div>
+          {activeTab === "timer" && (
+            <SettingsTabTimer settings={settings} onChange={onChange} />
+          )}
+          {activeTab === "sounds" && (
+            <SettingsTabSounds settings={settings} onChange={onChange} />
+          )}
+          {activeTab === "general" && (
+            <SettingsTabGeneral settings={settings} onChange={onChange} />
+          )}
+          {activeTab === "account" && (
+            <SettingsTabAccount settings={settings} onChange={onChange} />
+          )}
+        </div>
       </div>
     </div>
   );
