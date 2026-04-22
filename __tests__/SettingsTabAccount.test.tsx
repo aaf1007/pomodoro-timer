@@ -103,7 +103,7 @@ describe("SettingsTabAccount", () => {
       <SettingsTabAccount
         settings={baseSettings}
         onChange={() => {}}
-        syncStatus="ok"
+        syncStatus="synced"
       />,
     );
     await waitFor(() =>

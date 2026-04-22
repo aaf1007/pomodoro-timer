@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import AuthButton from "@/components/AuthButton";
 import type { SettingsTabProps } from "@/components/SettingsModal";
+import type { CloudSyncStatus } from "@/lib/storage/useCloudSync";
 
 interface AuthedUser {
   id: string;
@@ -11,16 +12,13 @@ interface AuthedUser {
 }
 
 export interface SettingsTabAccountProps extends SettingsTabProps {
-  syncStatus?: "idle" | "syncing" | "ok" | "error";
+  syncStatus?: CloudSyncStatus;
 }
 
-const SYNC_STATUS_LABELS: Record<
-  NonNullable<SettingsTabAccountProps["syncStatus"]>,
-  string
-> = {
-  idle: "Cloud sync: idle",
-  syncing: "Syncing…",
-  ok: "Synced ✓",
+const SYNC_STATUS_LABELS: Record<CloudSyncStatus, string> = {
+  anonymous: "Cloud sync: idle",
+  loading: "Syncing…",
+  synced: "Synced ✓",
   error: "Sync error",
 };
 

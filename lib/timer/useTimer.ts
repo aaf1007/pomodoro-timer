@@ -32,6 +32,7 @@ export function useTimer(
   const [running, setRunning] = useState(false);
 
   const endsAtRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
   const remainingRef = useRef(remaining);
   const durationsRef = useRef(durations);
   const onSessionEndRef = useRef(onSessionEnd);
@@ -79,18 +80,28 @@ export function useTimer(
     return () => cancelAnimationFrame(rafId);
   }, [running]);
 
+  const modeMs = durations[sequence.mode] * 60 * 1000;
+  useEffect(() => {
+    if (endsAtRef.current !== null) return;
+    if (pausedRef.current) return;
+    setRemaining(modeMs);
+  }, [modeMs]);
+
   const start = useCallback(() => {
     endsAtRef.current = Date.now() + remainingRef.current;
+    pausedRef.current = false;
     setRunning(true);
   }, []);
 
   const pause = useCallback(() => {
     endsAtRef.current = null;
+    pausedRef.current = true;
     setRunning(false);
   }, []);
 
   const reset = useCallback(() => {
     endsAtRef.current = null;
+    pausedRef.current = false;
     setRunning(false);
     setSequence((prev) => {
       const dur = durationsRef.current[prev.mode] * 60 * 1000;
@@ -101,6 +112,7 @@ export function useTimer(
 
   const selectMode = useCallback((mode: Mode) => {
     endsAtRef.current = null;
+    pausedRef.current = false;
     setRunning(false);
     setRemaining(durationsRef.current[mode] * 60 * 1000);
     setSequence((prev) => ({ mode, pomosDoneInCycle: prev.pomosDoneInCycle }));

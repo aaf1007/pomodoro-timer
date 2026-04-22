@@ -6,12 +6,14 @@ import SettingsTabTimer from "./SettingsTabTimer";
 import SettingsTabSounds from "./SettingsTabSounds";
 import SettingsTabGeneral from "./SettingsTabGeneral";
 import SettingsTabAccount from "./SettingsTabAccount";
+import type { CloudSyncStatus } from "@/lib/storage/useCloudSync";
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   settings: Settings;
   onChange: (partial: Partial<Settings>) => void;
+  syncStatus?: CloudSyncStatus;
 }
 
 export interface SettingsTabProps {
@@ -27,6 +29,7 @@ export default function SettingsModal({
   onClose,
   settings,
   onChange,
+  syncStatus,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>("timer");
   const firstTabRef = useRef<HTMLButtonElement>(null);
@@ -100,7 +103,11 @@ export default function SettingsModal({
             <SettingsTabGeneral settings={settings} onChange={onChange} />
           )}
           {activeTab === "account" && (
-            <SettingsTabAccount settings={settings} onChange={onChange} />
+            <SettingsTabAccount
+              settings={settings}
+              onChange={onChange}
+              syncStatus={syncStatus}
+            />
           )}
         </div>
       </div>

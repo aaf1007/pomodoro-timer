@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Todo } from "./local";
-import type { CloudTodo } from "./sync";
+import { DEFAULT_SETTINGS, type Settings, type Todo } from "./local";
+import type { CloudSettings, CloudTodo } from "./sync";
 import { mergeTodos } from "./sync";
 import { fromCloudTodos, toCloudTodo, toCloudTodos } from "./cloudTodos";
+import { fromCloudSettings, toCloudSettings } from "./cloudSettings";
 import {
   deleteCloudTodos,
+  fetchCloudSettings,
   fetchCloudTodos,
+  upsertCloudSettings,
   upsertCloudTodos,
 } from "./cloud";
 
@@ -37,12 +40,14 @@ export interface UseCloudSyncResult {
 interface UseCloudSyncOptions {
   todos: Todo[];
   setTodos: (next: Todo[]) => void;
+  settings: Settings;
+  setSettings: (next: Settings) => void;
 }
 
 const PUSH_DEBOUNCE_MS = 400;
 
 export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
-  const { todos, setTodos } = opts;
+  const { todos, setTodos, settings, setSettings } = opts;
 
   const supabase = useMemo(() => createClient(), []);
   const [userId, setUserId] = useState<string | null>(null);
@@ -58,9 +63,15 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
     todosRef.current = todos;
   }, [todos]);
 
+  const settingsRef = useRef<Settings>(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
   // Last-seen cloud state: id -> updated_at. Used by the diff-based pushes so
   // we don't re-upsert rows that are already current in the cloud.
   const lastSyncedRef = useRef<Map<string, string>>(new Map());
+  const lastSyncedSettingsRef = useRef<string | null>(null);
   const pendingMigrationRef = useRef<{
     local: Todo[];
     cloud: CloudTodo[];
@@ -81,6 +92,36 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
     lastSyncedRef.current = map;
   }
 
+  // Cloud wins updated_at ties to match mergeSettings (`sync.ts`): strict-
+  // greater on both sides would leave a tie with divergent content
+  // permanently unreconciled.
+  const reconcileSettings = useCallback(
+    async (uid: string, cloudSettings: CloudSettings | null) => {
+      const local = settingsRef.current;
+
+      if (
+        cloudSettings !== null &&
+        cloudSettings.updated_at >= local.updated_at
+      ) {
+        setSettings(fromCloudSettings(cloudSettings));
+        lastSyncedSettingsRef.current = cloudSettings.updated_at;
+        return;
+      }
+
+      // Local strictly newer, or cloud row is absent. Skip the push when
+      // local has never been edited AND the cloud row is absent — no point
+      // writing an epoch-timestamped row that loses every future merge.
+      const localUntouched = local.updated_at === DEFAULT_SETTINGS.updated_at;
+      if (cloudSettings === null && localUntouched) {
+        lastSyncedSettingsRef.current = local.updated_at;
+        return;
+      }
+      await upsertCloudSettings(supabase, uid, toCloudSettings(local, uid));
+      lastSyncedSettingsRef.current = local.updated_at;
+    },
+    [supabase, setSettings],
+  );
+
   const runInitialSync = useCallback(
     async (uid: string) => {
       if (lastSyncedUidRef.current === uid) return;
@@ -89,7 +130,11 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
       setErrorMessage(null);
       initialSyncDoneRef.current = false;
       try {
-        const cloudTodos = await fetchCloudTodos(supabase, uid);
+        const [cloudTodos, cloudSettings] = await Promise.all([
+          fetchCloudTodos(supabase, uid),
+          fetchCloudSettings(supabase, uid),
+        ]);
+        await reconcileSettings(uid, cloudSettings);
         const local = todosRef.current;
 
         if (cloudTodos.length === 0 && local.length === 0) {
@@ -149,7 +194,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
         setErrorMessage(errToMessage(err));
       }
     },
-    [supabase, setTodos],
+    [supabase, setTodos, reconcileSettings],
   );
 
   useEffect(() => {
@@ -174,6 +219,7 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
           void runInitialSync(uid);
         } else {
           lastSyncedRef.current = new Map();
+          lastSyncedSettingsRef.current = null;
           lastSyncedUidRef.current = null;
           pendingMigrationRef.current = null;
           initialSyncDoneRef.current = false;
@@ -280,13 +326,31 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
             if (!currentIds.has(id)) toDelete.push(id);
           }
 
-          if (toUpsert.length === 0 && toDelete.length === 0) return;
+          const currentSettings = settingsRef.current;
+          const settingsChanged =
+            currentSettings.updated_at !== lastSyncedSettingsRef.current;
+
+          if (
+            toUpsert.length === 0 &&
+            toDelete.length === 0 &&
+            !settingsChanged
+          ) {
+            return;
+          }
 
           if (toUpsert.length > 0) {
             await upsertCloudTodos(supabase, uid, toUpsert);
           }
           if (toDelete.length > 0) {
             await deleteCloudTodos(supabase, uid, toDelete);
+          }
+          if (settingsChanged) {
+            await upsertCloudSettings(
+              supabase,
+              uid,
+              toCloudSettings(currentSettings, uid),
+            );
+            lastSyncedSettingsRef.current = currentSettings.updated_at;
           }
 
           const next = new Map<string, string>();
@@ -309,7 +373,6 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
     [supabase],
   );
 
-  // Debounced diff-push on todos change, only after initial sync.
   useEffect(() => {
     if (!userId) return;
     if (!initialSyncDoneRef.current) return;
@@ -325,7 +388,9 @@ export function useCloudSync(opts: UseCloudSyncOptions): UseCloudSyncResult {
         pushTimerRef.current = null;
       }
     };
-  }, [todos, userId, diffPush]);
+    // settings.updated_at is the only field diffPush reads; depending on the
+    // whole object would schedule and clear the timer on unrelated re-renders.
+  }, [todos, settings.updated_at, userId, diffPush]);
 
   return {
     status,
