@@ -10,6 +10,11 @@ interface SettingsModalProps {
   onChange: (partial: Partial<Settings>) => void;
 }
 
+export interface SettingsTabProps {
+  settings: Settings;
+  onChange: (partial: Partial<Settings>) => void;
+}
+
 const TABS = ["timer", "sounds", "general", "account"] as const;
 type Tab = (typeof TABS)[number];
 
