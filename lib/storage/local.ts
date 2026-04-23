@@ -49,3 +49,48 @@ export function toggleTodo(todos: Todo[], id: string): Todo[] {
 export function deleteTodo(todos: Todo[], id: string): Todo[] {
   return todos.filter((t) => t.id !== id);
 }
+
+export const SETTINGS_KEY = "pomodoro:settings";
+
+export interface Settings {
+  pomodoro_min: number;
+  short_min: number;
+  long_min: number;
+  theme: "seoul" | "tokyo" | "paris" | "fire";
+  alert_sound: "bell" | "chime" | "birds" | "lofi";
+  alert_volume: number;
+  alert_enabled: boolean;
+  notifications_enabled: boolean;
+  spotify_enabled: boolean;
+  updated_at: string;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  pomodoro_min: 25,
+  short_min: 5,
+  long_min: 15,
+  theme: "seoul",
+  alert_sound: "bell",
+  alert_volume: 0.6,
+  alert_enabled: true,
+  notifications_enabled: false,
+  spotify_enabled: true,
+  updated_at: "1970-01-01T00:00:00.000Z",
+};
+
+export function loadSettings(): Settings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return DEFAULT_SETTINGS;
+    const parsed = JSON.parse(raw);
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Settings)
+      : DEFAULT_SETTINGS;
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export function saveSettings(s: Settings): void {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+}

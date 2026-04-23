@@ -5,9 +5,16 @@ interface Props {
   onStart: () => void;
   onPause: () => void;
   onReset: () => void;
+  onOpenSettings?: () => void;
 }
 
-export default function Controls({ running, onStart, onPause, onReset }: Props) {
+export default function Controls({
+  running,
+  onStart,
+  onPause,
+  onReset,
+  onOpenSettings,
+}: Props) {
   return (
     <div className="flex items-center gap-6">
       <button
@@ -36,6 +43,15 @@ export default function Controls({ running, onStart, onPause, onReset }: Props) 
           <path d="M3 3v5h5" />
         </svg>
       </button>
+      {onOpenSettings && (
+        <button
+          onClick={onOpenSettings}
+          aria-label="Open settings"
+          className="text-white/60 hover:text-white transition-colors cursor-pointer text-xl leading-none"
+        >
+          ⚙
+        </button>
+      )}
     </div>
   );
 }

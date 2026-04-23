@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useCloudSync } from "./useCloudSync";
-import type { Todo } from "./local";
-import type { CloudTodo } from "./sync";
+import { DEFAULT_SETTINGS, type Settings, type Todo } from "./local";
+import type { CloudSettings, CloudTodo } from "./sync";
 
 const getUser = jest.fn();
 const onAuthStateChange = jest.fn();
@@ -18,11 +18,15 @@ jest.mock("@/lib/supabase/client", () => ({
 const fetchCloudTodos = jest.fn();
 const upsertCloudTodos = jest.fn();
 const deleteCloudTodos = jest.fn();
+const fetchCloudSettings = jest.fn();
+const upsertCloudSettings = jest.fn();
 
 jest.mock("./cloud", () => ({
   fetchCloudTodos: (...args: unknown[]) => fetchCloudTodos(...args),
   upsertCloudTodos: (...args: unknown[]) => upsertCloudTodos(...args),
   deleteCloudTodos: (...args: unknown[]) => deleteCloudTodos(...args),
+  fetchCloudSettings: (...args: unknown[]) => fetchCloudSettings(...args),
+  upsertCloudSettings: (...args: unknown[]) => upsertCloudSettings(...args),
 }));
 
 function makeTodo(partial: Partial<Todo>): Todo {
@@ -46,20 +50,36 @@ function makeCloudTodo(partial: Partial<CloudTodo>): CloudTodo {
   };
 }
 
-interface Harness {
-  todos: Todo[];
-  setTodos: (next: Todo[]) => void;
+function makeSettings(partial: Partial<Settings> = {}): Settings {
+  return { ...DEFAULT_SETTINGS, ...partial };
 }
-function makeHarness(initial: Todo[] = []): Harness {
-  const state = { todos: initial };
+
+function makeCloudSettings(partial: Partial<CloudSettings> = {}): CloudSettings {
   return {
-    get todos() {
-      return state.todos;
-    },
-    setTodos: (next: Todo[]) => {
-      state.todos = next;
-    },
-  } as unknown as Harness;
+    ...DEFAULT_SETTINGS,
+    user_id: "user-1",
+    updated_at: "2026-04-18T00:00:00.000Z",
+    ...partial,
+  };
+}
+
+interface RenderOpts {
+  todos?: Todo[];
+  setTodos?: (next: Todo[]) => void;
+  settings?: Settings;
+  setSettings?: (next: Settings) => void;
+}
+function renderSync(opts: RenderOpts = {}) {
+  // Capture defaults once so the refs stay stable across re-renders —
+  // re-creating jest.fn() inside renderHook's callback churns useCallback
+  // deps and re-triggers initial sync, masking real behaviour.
+  const resolved = {
+    todos: opts.todos ?? [],
+    setTodos: opts.setTodos ?? jest.fn(),
+    settings: opts.settings ?? makeSettings(),
+    setSettings: opts.setSettings ?? jest.fn(),
+  };
+  return renderHook(() => useCloudSync(resolved));
 }
 
 beforeEach(() => {
@@ -68,9 +88,13 @@ beforeEach(() => {
   fetchCloudTodos.mockReset();
   upsertCloudTodos.mockReset();
   deleteCloudTodos.mockReset();
+  fetchCloudSettings.mockReset();
+  upsertCloudSettings.mockReset();
 
   upsertCloudTodos.mockResolvedValue(undefined);
   deleteCloudTodos.mockResolvedValue(undefined);
+  fetchCloudSettings.mockResolvedValue(null);
+  upsertCloudSettings.mockResolvedValue(undefined);
 
   onAuthStateChange.mockReturnValue({
     data: { subscription: { unsubscribe: jest.fn() } },
@@ -80,14 +104,12 @@ beforeEach(() => {
 describe("useCloudSync", () => {
   it("should_start_anonymous_when_signed_out", async () => {
     getUser.mockResolvedValue({ data: { user: null }, error: null });
-    const h = makeHarness();
-    const { result } = renderHook(() =>
-      useCloudSync({ todos: h.todos, setTodos: h.setTodos }),
-    );
+    const { result } = renderSync();
     await waitFor(() => {
       expect(result.current.status).toBe("anonymous");
     });
     expect(fetchCloudTodos).not.toHaveBeenCalled();
+    expect(fetchCloudSettings).not.toHaveBeenCalled();
   });
 
   it("should_push_local_when_signed_in_with_empty_cloud", async () => {
@@ -96,11 +118,9 @@ describe("useCloudSync", () => {
       error: null,
     });
     fetchCloudTodos.mockResolvedValue([]);
-    const initial = [makeTodo({ id: "a", label: "a" })];
-    const h = makeHarness(initial);
-    const { result } = renderHook(() =>
-      useCloudSync({ todos: h.todos, setTodos: h.setTodos }),
-    );
+    const { result } = renderSync({
+      todos: [makeTodo({ id: "a", label: "a" })],
+    });
 
     await waitFor(() => {
       expect(result.current.status).toBe("synced");
@@ -119,12 +139,9 @@ describe("useCloudSync", () => {
     });
     const cloud = [makeCloudTodo({ id: "c", label: "cloudy" })];
     fetchCloudTodos.mockResolvedValue(cloud);
-    const h = makeHarness([]);
     const setTodosSpy = jest.fn();
 
-    const { result } = renderHook(() =>
-      useCloudSync({ todos: h.todos, setTodos: setTodosSpy }),
-    );
+    const { result } = renderSync({ todos: [], setTodos: setTodosSpy });
 
     await waitFor(() => {
       expect(result.current.status).toBe("synced");
@@ -146,12 +163,10 @@ describe("useCloudSync", () => {
     fetchCloudTodos.mockResolvedValue(cloud);
     const setTodosSpy = jest.fn();
 
-    const { result } = renderHook(() =>
-      useCloudSync({
-        todos: [makeTodo({ id: "a", label: "local-a" })],
-        setTodos: setTodosSpy,
-      }),
-    );
+    const { result } = renderSync({
+      todos: [makeTodo({ id: "a", label: "local-a" })],
+      setTodos: setTodosSpy,
+    });
 
     await waitFor(() => {
       expect(result.current.status).toBe("synced");
@@ -172,11 +187,8 @@ describe("useCloudSync", () => {
       error: null,
     });
     fetchCloudTodos.mockResolvedValue([makeCloudTodo({ id: "c" })]);
-    const h = makeHarness([makeTodo({ id: "a" })]);
 
-    const { result } = renderHook(() =>
-      useCloudSync({ todos: h.todos, setTodos: h.setTodos }),
-    );
+    const { result } = renderSync({ todos: [makeTodo({ id: "a" })] });
 
     await waitFor(() => {
       expect(result.current.migrationPrompt).toEqual({
@@ -196,12 +208,10 @@ describe("useCloudSync", () => {
     fetchCloudTodos.mockResolvedValue(cloud);
     const setTodosSpy = jest.fn();
 
-    const { result } = renderHook(() =>
-      useCloudSync({
-        todos: [makeTodo({ id: "a", label: "local", position: 0 })],
-        setTodos: setTodosSpy,
-      }),
-    );
+    const { result } = renderSync({
+      todos: [makeTodo({ id: "a", label: "local", position: 0 })],
+      setTodos: setTodosSpy,
+    });
 
     await waitFor(() => {
       expect(result.current.migrationPrompt).not.toBeNull();
@@ -232,12 +242,10 @@ describe("useCloudSync", () => {
     fetchCloudTodos.mockResolvedValue(cloud);
     const setTodosSpy = jest.fn();
 
-    const { result } = renderHook(() =>
-      useCloudSync({
-        todos: [makeTodo({ id: "a", label: "local" })],
-        setTodos: setTodosSpy,
-      }),
-    );
+    const { result } = renderSync({
+      todos: [makeTodo({ id: "a", label: "local" })],
+      setTodos: setTodosSpy,
+    });
     await waitFor(() => {
       expect(result.current.migrationPrompt).not.toBeNull();
     });
@@ -271,9 +279,10 @@ describe("useCloudSync", () => {
       makeTodo({ id: "new", label: "local-new" }),
     ];
 
-    const { result } = renderHook(() =>
-      useCloudSync({ todos: initialTodos, setTodos: setTodosSpy }),
-    );
+    const { result } = renderSync({
+      todos: initialTodos,
+      setTodos: setTodosSpy,
+    });
     await waitFor(() => {
       expect(result.current.migrationPrompt).not.toBeNull();
     });
@@ -315,9 +324,7 @@ describe("useCloudSync", () => {
       return { data: { subscription: { unsubscribe: jest.fn() } } };
     });
 
-    const { result } = renderHook(() =>
-      useCloudSync({ todos: [], setTodos: jest.fn() }),
-    );
+    const { result } = renderSync();
 
     await waitFor(() => {
       expect(result.current.status).toBe("synced");
@@ -349,20 +356,16 @@ describe("useCloudSync", () => {
       }),
     ];
     fetchCloudTodos.mockResolvedValue(cloud);
-    const setTodosSpy = jest.fn();
 
-    const { result } = renderHook(() =>
-      useCloudSync({
-        todos: [
-          makeTodo({
-            id: "a",
-            label: "local-a-newer",
-            updated_at: "2026-04-20T00:00:00.000Z",
-          }),
-        ],
-        setTodos: setTodosSpy,
-      }),
-    );
+    const { result } = renderSync({
+      todos: [
+        makeTodo({
+          id: "a",
+          label: "local-a-newer",
+          updated_at: "2026-04-20T00:00:00.000Z",
+        }),
+      ],
+    });
 
     await waitFor(() => {
       expect(result.current.status).toBe("synced");
@@ -381,11 +384,8 @@ describe("useCloudSync", () => {
     });
     fetchCloudTodos.mockResolvedValue([]);
     upsertCloudTodos.mockRejectedValueOnce(new Error("network boom"));
-    const h = makeHarness([makeTodo({ id: "a" })]);
 
-    const { result } = renderHook(() =>
-      useCloudSync({ todos: h.todos, setTodos: h.setTodos }),
-    );
+    const { result } = renderSync({ todos: [makeTodo({ id: "a" })] });
 
     await waitFor(() => {
       expect(result.current.status).toBe("error");
@@ -408,10 +408,7 @@ describe("useCloudSync", () => {
       return { data: { subscription: { unsubscribe: jest.fn() } } };
     });
 
-    const h = makeHarness();
-    const { result } = renderHook(() =>
-      useCloudSync({ todos: h.todos, setTodos: h.setTodos }),
-    );
+    const { result } = renderSync();
 
     await waitFor(() => {
       expect(result.current.status).toBe("synced");
@@ -440,12 +437,287 @@ describe("useCloudSync", () => {
       error: null,
     });
     fetchCloudTodos.mockRejectedValue(new Error("boom"));
-    const { result } = renderHook(() =>
-      useCloudSync({ todos: [], setTodos: jest.fn() }),
-    );
+    const { result } = renderSync();
     await waitFor(() => {
       expect(result.current.status).toBe("error");
     });
     expect(result.current.errorMessage).toMatch(/boom/i);
+  });
+
+  describe("settings sync", () => {
+    it("should_push_local_settings_when_cloud_has_none", async () => {
+      getUser.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+      fetchCloudTodos.mockResolvedValue([]);
+      fetchCloudSettings.mockResolvedValue(null);
+
+      const localSettings = makeSettings({
+        pomodoro_min: 40,
+        theme: "tokyo",
+        updated_at: "2026-04-20T00:00:00.000Z",
+      });
+      const setSettingsSpy = jest.fn();
+
+      const { result } = renderSync({
+        settings: localSettings,
+        setSettings: setSettingsSpy,
+      });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("synced");
+      });
+      expect(upsertCloudSettings).toHaveBeenCalledWith(
+        expect.anything(),
+        "user-1",
+        expect.objectContaining({
+          user_id: "user-1",
+          pomodoro_min: 40,
+          theme: "tokyo",
+          updated_at: "2026-04-20T00:00:00.000Z",
+        }),
+      );
+      expect(setSettingsSpy).not.toHaveBeenCalled();
+    });
+
+    it("should_adopt_cloud_settings_when_updated_at_ties", async () => {
+      // Tie-break matches mergeSettings (sync.ts): cloud wins ties. Strict-
+      // greater on both sides would let divergent-content tie rows stay
+      // permanently unreconciled.
+      getUser.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+      fetchCloudTodos.mockResolvedValue([]);
+      const cloudSettings = makeCloudSettings({
+        pomodoro_min: 42,
+        theme: "fire",
+        updated_at: "2026-04-20T00:00:00.000Z",
+      });
+      fetchCloudSettings.mockResolvedValue(cloudSettings);
+
+      const localSettings = makeSettings({
+        pomodoro_min: 25,
+        theme: "seoul",
+        updated_at: "2026-04-20T00:00:00.000Z",
+      });
+      const setSettingsSpy = jest.fn();
+
+      const { result } = renderSync({
+        settings: localSettings,
+        setSettings: setSettingsSpy,
+      });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("synced");
+      });
+      expect(setSettingsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pomodoro_min: 42,
+          theme: "fire",
+          updated_at: "2026-04-20T00:00:00.000Z",
+        }),
+      );
+      expect(upsertCloudSettings).not.toHaveBeenCalled();
+    });
+
+    it("should_overwrite_local_settings_when_cloud_is_newer", async () => {
+      getUser.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+      fetchCloudTodos.mockResolvedValue([]);
+      const cloudSettings = makeCloudSettings({
+        pomodoro_min: 50,
+        theme: "fire",
+        updated_at: "2026-04-22T00:00:00.000Z",
+      });
+      fetchCloudSettings.mockResolvedValue(cloudSettings);
+
+      const localSettings = makeSettings({
+        pomodoro_min: 25,
+        theme: "seoul",
+        updated_at: "2026-04-20T00:00:00.000Z",
+      });
+      const setSettingsSpy = jest.fn();
+
+      const { result } = renderSync({
+        settings: localSettings,
+        setSettings: setSettingsSpy,
+      });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("synced");
+      });
+      expect(setSettingsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pomodoro_min: 50,
+          theme: "fire",
+          updated_at: "2026-04-22T00:00:00.000Z",
+        }),
+      );
+      expect(upsertCloudSettings).not.toHaveBeenCalled();
+    });
+
+    it("should_overwrite_cloud_settings_when_local_is_newer", async () => {
+      getUser.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+      fetchCloudTodos.mockResolvedValue([]);
+      const cloudSettings = makeCloudSettings({
+        pomodoro_min: 25,
+        theme: "seoul",
+        updated_at: "2026-04-10T00:00:00.000Z",
+      });
+      fetchCloudSettings.mockResolvedValue(cloudSettings);
+
+      const localSettings = makeSettings({
+        pomodoro_min: 45,
+        theme: "paris",
+        updated_at: "2026-04-21T00:00:00.000Z",
+      });
+      const setSettingsSpy = jest.fn();
+
+      const { result } = renderSync({
+        settings: localSettings,
+        setSettings: setSettingsSpy,
+      });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("synced");
+      });
+      expect(upsertCloudSettings).toHaveBeenCalledWith(
+        expect.anything(),
+        "user-1",
+        expect.objectContaining({
+          user_id: "user-1",
+          pomodoro_min: 45,
+          theme: "paris",
+          updated_at: "2026-04-21T00:00:00.000Z",
+        }),
+      );
+      expect(setSettingsSpy).not.toHaveBeenCalled();
+    });
+
+    it("should_not_clobber_cloud_settings_after_signout_and_back_in", async () => {
+      getUser.mockResolvedValue({
+        data: { user: { id: "user-1" } },
+        error: null,
+      });
+      fetchCloudTodos.mockResolvedValue([]);
+      const cloudSettings = makeCloudSettings({
+        pomodoro_min: 35,
+        updated_at: "2026-04-20T00:00:00.000Z",
+      });
+      fetchCloudSettings.mockResolvedValue(cloudSettings);
+
+      let capturedCb:
+        | ((
+            event: string,
+            session: { user?: { id: string } } | null,
+          ) => void)
+        | null = null;
+      onAuthStateChange.mockImplementation((cb) => {
+        capturedCb = cb;
+        return { data: { subscription: { unsubscribe: jest.fn() } } };
+      });
+
+      const setSettingsSpy = jest.fn();
+      const { result } = renderSync({
+        settings: makeSettings({
+          pomodoro_min: 25,
+          updated_at: "2026-04-10T00:00:00.000Z",
+        }),
+        setSettings: setSettingsSpy,
+      });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("synced");
+      });
+      // Initial sync pulled the newer cloud settings into local.
+      expect(setSettingsSpy).toHaveBeenCalledTimes(1);
+      expect(upsertCloudSettings).not.toHaveBeenCalled();
+
+      // Sign out clears state; lastSyncedSettingsRef must reset so that when
+      // the same user signs back in we don't skip settings reconciliation.
+      await act(async () => {
+        capturedCb?.("SIGNED_OUT", null);
+      });
+      await waitFor(() => {
+        expect(result.current.status).toBe("anonymous");
+      });
+
+      await act(async () => {
+        capturedCb?.("SIGNED_IN", { user: { id: "user-1" } });
+      });
+      await waitFor(() => {
+        expect(result.current.status).toBe("synced");
+      });
+      // Re-sync must re-query settings and not push stale local values.
+      expect(fetchCloudSettings).toHaveBeenCalledTimes(2);
+      expect(upsertCloudSettings).not.toHaveBeenCalled();
+    });
+
+    it("should_push_settings_when_user_edits_while_signed_in", async () => {
+      jest.useFakeTimers();
+      try {
+        getUser.mockResolvedValue({
+          data: { user: { id: "user-1" } },
+          error: null,
+        });
+        fetchCloudTodos.mockResolvedValue([]);
+        const cloudSettings = makeCloudSettings({
+          pomodoro_min: 25,
+          updated_at: "2026-04-20T00:00:00.000Z",
+        });
+        fetchCloudSettings.mockResolvedValue(cloudSettings);
+
+        const initialSettings = makeSettings({
+          pomodoro_min: 25,
+          updated_at: "2026-04-20T00:00:00.000Z",
+        });
+        const editedSettings = makeSettings({
+          pomodoro_min: 33,
+          updated_at: "2026-04-21T00:00:00.000Z",
+        });
+
+        const { result, rerender } = renderHook(
+          (props: { settings: Settings }) =>
+            useCloudSync({
+              todos: [],
+              setTodos: jest.fn(),
+              settings: props.settings,
+              setSettings: jest.fn(),
+            }),
+          { initialProps: { settings: initialSettings } },
+        );
+
+        await waitFor(() => {
+          expect(result.current.status).toBe("synced");
+        });
+        expect(upsertCloudSettings).not.toHaveBeenCalled();
+
+        rerender({ settings: editedSettings });
+        await act(async () => {
+          jest.advanceTimersByTime(500);
+        });
+
+        await waitFor(() => {
+          expect(upsertCloudSettings).toHaveBeenCalledWith(
+            expect.anything(),
+            "user-1",
+            expect.objectContaining({
+              user_id: "user-1",
+              pomodoro_min: 33,
+              updated_at: "2026-04-21T00:00:00.000Z",
+            }),
+          );
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 });
