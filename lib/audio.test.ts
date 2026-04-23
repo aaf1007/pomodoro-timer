@@ -6,10 +6,12 @@ const mockPlay = jest.fn().mockResolvedValue(undefined);
 class MockAudio {
   src: string;
   volume: number = 1;
+  error: unknown = null;
   constructor(src: string) {
     this.src = src;
   }
   play = mockPlay;
+  addEventListener = jest.fn();
 }
 
 beforeAll(() => {
@@ -53,11 +55,13 @@ describe("audio", () => {
       class SrcCapture {
         src: string;
         volume = 1;
+        error: unknown = null;
         constructor(src: string) {
           this.src = src;
           capturedSrc = src;
         }
         play = jest.fn().mockResolvedValue(undefined);
+        addEventListener = jest.fn();
       }
       global.Audio = SrcCapture as unknown as typeof Audio;
       playAlert(sound, 1);
@@ -71,11 +75,13 @@ describe("audio", () => {
     class VolumeCapture {
       src: string;
       volume = 1;
+      error: unknown = null;
       constructor(src: string) { this.src = src; }
       play = jest.fn().mockImplementation(() => {
         capturedVolume = this.volume;
         return Promise.resolve();
       });
+      addEventListener = jest.fn();
     }
     global.Audio = VolumeCapture as unknown as typeof Audio;
     playAlert("bell", -0.5);
@@ -88,11 +94,13 @@ describe("audio", () => {
     class VolumeCapture {
       src: string;
       volume = 1;
+      error: unknown = null;
       constructor(src: string) { this.src = src; }
       play = jest.fn().mockImplementation(() => {
         capturedVolume = this.volume;
         return Promise.resolve();
       });
+      addEventListener = jest.fn();
     }
     global.Audio = VolumeCapture as unknown as typeof Audio;
     playAlert("bell", 1.5);
